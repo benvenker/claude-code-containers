@@ -35,6 +35,8 @@ export async function handleGitLabSetup(request: Request, origin: string, env: a
       return await showSetupForm(request, origin);
     case '/gitlab-setup/configure':
       return await configureGitLab(request, origin, env);
+    case '/gitlab-setup/configure-group':
+      return await configureGitLabGroup(request, origin, env);
     case '/gitlab-setup/status':
       return await getSetupStatus(request, env);
     default:
@@ -66,12 +68,40 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
       <h1>GitLab Integration Setup</h1>
       
       <div class="info">
-        <h3>Setup Instructions:</h3>
+        <h3>Choose Your Setup Type:</h3>
+        <p><strong>Single Project:</strong> Configure one specific GitLab project</p>
+        <p><strong>Group Level:</strong> Configure an entire GitLab group (all projects automatically supported)</p>
+      </div>
+      
+      <div class="form-group">
+        <label>Setup Type:</label>
+        <div>
+          <input type="radio" id="projectMode" name="setupType" value="project" checked>
+          <label for="projectMode" style="display: inline; margin-left: 5px;">Single Project</label>
+        </div>
+        <div>
+          <input type="radio" id="groupMode" name="setupType" value="group">
+          <label for="groupMode" style="display: inline; margin-left: 5px;">Group Level</label>
+        </div>
+      </div>
+      
+      <div class="info" id="projectInstructions">
+        <h3>Project Setup Instructions:</h3>
         <ol>
           <li>Create a GitLab Personal Access Token with 'api' scope</li>
           <li>Get your GitLab project ID from project settings</li>
           <li>Configure webhook URL: <code>${webhookUrl}</code></li>
           <li>Generate a random webhook secret</li>
+        </ol>
+      </div>
+      
+      <div class="info" id="groupInstructions" style="display: none;">
+        <h3>Group Setup Instructions:</h3>
+        <ol>
+          <li>Create a GitLab Personal Access Token with 'api' scope</li>
+          <li>Get your GitLab group ID and path from group settings</li>
+          <li>Configure webhook URL: <code>${webhookUrl}</code> on ALL projects in the group</li>
+          <li>Use the same webhook secret for all projects in the group</li>
         </ol>
       </div>
       
@@ -81,9 +111,25 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
           <input type="url" id="gitlabUrl" name="gitlabUrl" value="https://gitlab.com" required>
         </div>
         
-        <div class="form-group">
+        <div class="form-group" id="projectIdGroup">
           <label for="projectId">Project ID:</label>
           <input type="text" id="projectId" name="projectId" placeholder="123456" required>
+        </div>
+        
+        <div class="form-group" id="groupIdGroup" style="display: none;">
+          <label for="groupId">Group ID:</label>
+          <input type="text" id="groupId" name="groupId" placeholder="789">
+        </div>
+        
+        <div class="form-group" id="groupPathGroup" style="display: none;">
+          <label for="groupPath">Group Path:</label>
+          <input type="text" id="groupPath" name="groupPath" placeholder="my-organization">
+          <small>The group path as shown in GitLab URLs (e.g., 'my-org' for gitlab.com/my-org)</small>
+        </div>
+        
+        <div class="form-group" id="groupNameGroup" style="display: none;">
+          <label for="groupName">Group Name (optional):</label>
+          <input type="text" id="groupName" name="groupName" placeholder="My Organization">
         </div>
         
         <div class="form-group">
@@ -97,12 +143,37 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
           <input type="password" id="webhookSecret" name="webhookSecret" placeholder="Generate a random secret" required>
         </div>
         
-        <button type="submit">Configure GitLab</button>
+        <button type="submit" id="submitButton">Configure GitLab Project</button>
       </form>
       
       <div id="result"></div>
       
       <script>
+        // Handle setup type switching
+        document.querySelectorAll('input[name="setupType"]').forEach(radio => {
+          radio.addEventListener('change', function() {
+            const isGroupMode = this.value === 'group';
+            
+            // Show/hide instructions
+            document.getElementById('projectInstructions').style.display = isGroupMode ? 'none' : 'block';
+            document.getElementById('groupInstructions').style.display = isGroupMode ? 'block' : 'none';
+            
+            // Show/hide form fields
+            document.getElementById('projectIdGroup').style.display = isGroupMode ? 'none' : 'block';
+            document.getElementById('groupIdGroup').style.display = isGroupMode ? 'block' : 'none';
+            document.getElementById('groupPathGroup').style.display = isGroupMode ? 'block' : 'none';
+            document.getElementById('groupNameGroup').style.display = isGroupMode ? 'block' : 'none';
+            
+            // Update button text
+            document.getElementById('submitButton').textContent = isGroupMode ? 'Configure GitLab Group' : 'Configure GitLab Project';
+            
+            // Update required fields
+            document.getElementById('projectId').required = !isGroupMode;
+            document.getElementById('groupId').required = isGroupMode;
+            document.getElementById('groupPath').required = isGroupMode;
+          });
+        });
+        
         document.getElementById('setupForm').addEventListener('submit', async (e) => {
           e.preventDefault();
           
@@ -112,7 +183,10 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
           document.getElementById('result').innerHTML = '<div>Configuring...</div>';
           
           try {
-            const response = await fetch('/gitlab-setup/configure', {
+            const isGroupMode = document.querySelector('input[name="setupType"]:checked').value === 'group';
+            const endpoint = isGroupMode ? '/gitlab-setup/configure-group' : '/gitlab-setup/configure';
+            
+            const response = await fetch(endpoint, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(data)
@@ -121,8 +195,9 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
             const result = await response.json();
             
             if (response.ok) {
+              const configType = isGroupMode ? 'group' : 'project';
               document.getElementById('result').innerHTML = 
-                '<div class="success">✅ GitLab integration configured successfully!<br>Webhook URL: ' + result.webhookUrl + '</div>';
+                '<div class="success">✅ GitLab ' + configType + ' configured successfully!<br>Webhook URL: ' + result.webhookUrl + '</div>';
             } else {
               document.getElementById('result').innerHTML = 
                 '<div class="error">❌ Error: ' + result.error + '</div>';
@@ -162,8 +237,8 @@ async function configureGitLab(request: Request, origin: string, env: any): Prom
     }
     
     // Store credentials in GitLabAppConfigDO
-    const configDO = env.GITLAB_APP_CONFIG.get(env.GITLAB_APP_CONFIG.idFromName(projectId));
-    await configDO.fetch(new Request('http://internal/store', {
+    const configDO = env.GITLAB_APP_CONFIG.get(env.GITLAB_APP_CONFIG.idFromString('config'));
+    await configDO.fetch(new Request('http://config/store', {
       method: 'POST',
       body: JSON.stringify({ gitlabUrl, projectId, token, webhookSecret })
     }));
@@ -171,6 +246,57 @@ async function configureGitLab(request: Request, origin: string, env: any): Prom
     return new Response(JSON.stringify({ 
       success: true, 
       message: 'GitLab integration configured successfully',
+      webhookUrl: `${origin}/webhooks/gitlab`
+    }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+  } catch (error) {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+async function configureGitLabGroup(request: Request, origin: string, env: any): Promise<Response> {
+  try {
+    const data = await request.json();
+    const { gitlabUrl, groupId, groupPath, groupName, token, webhookSecret } = data;
+    
+    logWithContext('GITLAB_SETUP', 'Configuring GitLab group integration', { 
+      gitlabUrl, 
+      groupId,
+      groupPath
+    });
+    
+    // Validate token
+    const tokenValidation = await validateGitLabToken(token, gitlabUrl);
+    if (!tokenValidation.valid) {
+      return new Response(JSON.stringify({ error: tokenValidation.error }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    // Store group credentials in GitLabAppConfigDO
+    const configDO = env.GITLAB_APP_CONFIG.get(env.GITLAB_APP_CONFIG.idFromString('config'));
+    await configDO.fetch(new Request('http://config/store-group', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        gitlabUrl, 
+        groupId, 
+        groupPath, 
+        groupName, 
+        token, 
+        webhookSecret,
+        autoDiscoverProjects: true
+      })
+    }));
+    
+    return new Response(JSON.stringify({ 
+      success: true, 
+      message: 'GitLab group integration configured successfully',
       webhookUrl: `${origin}/webhooks/gitlab`
     }), {
       headers: { 'Content-Type': 'application/json' }
