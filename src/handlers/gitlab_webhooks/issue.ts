@@ -168,16 +168,27 @@ export async function handleGitLabIssuesEvent(
     logWithContext('GITLAB_ISSUES_EVENT', 'Handling new GitLab issue creation');
 
     try {
-      // Route to Claude Code container for processing
-      logWithContext('GITLAB_ISSUES_EVENT', 'Routing to Claude Code container');
-      await routeToClaudeCodeContainer(data, env, configDO);
+      // Route to Claude Code container for processing asynchronously
+      // Don't await - let it process in the background to avoid GitLab webhook timeout
+      logWithContext('GITLAB_ISSUES_EVENT', 'Routing to Claude Code container (async)');
+      
+      // Use waitUntil to ensure the processing continues after we return
+      const processingPromise = routeToClaudeCodeContainer(data, env, configDO)
+        .then(() => {
+          logWithContext('GITLAB_ISSUES_EVENT', 'GitLab issue routed to Claude Code container successfully');
+        })
+        .catch((error) => {
+          logWithContext('GITLAB_ISSUES_EVENT', 'Failed to process new GitLab issue', {
+            error: error instanceof Error ? error.message : String(error),
+            issueIid: issue?.iid
+          });
+        });
 
-      logWithContext('GITLAB_ISSUES_EVENT', 'GitLab issue routed to Claude Code container successfully');
-
-      return new Response('GitLab issue processed', { status: 200 });
+      // Return immediately to avoid GitLab webhook timeout
+      return new Response('GitLab issue accepted for processing', { status: 200 });
 
     } catch (error) {
-      logWithContext('GITLAB_ISSUES_EVENT', 'Failed to process new GitLab issue', {
+      logWithContext('GITLAB_ISSUES_EVENT', 'Failed to initiate issue processing', {
         error: error instanceof Error ? error.message : String(error),
         issueIid: issue?.iid
       });
