@@ -7,7 +7,7 @@ import { spawn } from 'child_process';
 import { ContainerGitHubClient } from './github_client';
 import { GitLabClient } from './gitlab_client';
 
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 
 // Simplified container response interface
 interface ContainerResponse {
@@ -1333,10 +1333,15 @@ export async function requestHandler(req: http.IncomingMessage, res: http.Server
 // Start server
 const server = http.createServer(requestHandler);
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, () => {
+  const address = server.address();
+  const host = typeof address === 'string' ? address : address?.address || 'unknown';
+  const port = typeof address === 'string' ? PORT : address?.port || PORT;
+  
   logWithContext('SERVER', 'Claude Code container server started', {
-    port: PORT,
-    host: '0.0.0.0',
+    port: port,
+    host: host,
+    address: address,
     pid: process.pid,
     nodeVersion: process.version,
     platform: process.platform,
