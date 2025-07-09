@@ -1,5 +1,6 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
+	"account_id": "0213cd885599faec00f90a4f1d4f2228",
 	"name": "claude-code-containers",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-05-23",
