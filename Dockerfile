@@ -1,47 +1,51 @@
 # syntax=docker/dockerfile:1
 
-FROM node:22-slim AS base
+# Build stage - includes build tools
+FROM node:22-slim AS builder
 
-# Update package lists and install dependencies
+# Install minimal build dependencies for compilation only
 RUN apt-get update && \
     apt-get install -y \
         python3 \
-        python3-pip \
         git \
         build-essential \
-        python3-dev \
         ca-certificates \
         curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code CLI globally
-RUN npm install -g @anthropic-ai/claude-code
-
-# Install GitLab CLI (glab)
-# Using the official installation script for Linux
-RUN curl -sL https://gitlab.com/gitlab-org/cli/-/releases/permalink/latest/downloads/glab_Linux_x86_64.tar.gz | \
-    tar -xz -C /tmp && \
-    mv /tmp/bin/glab /usr/local/bin/ && \
-    chmod +x /usr/local/bin/glab && \
-    rm -rf /tmp/bin
-
-# Set destination for COPY
 WORKDIR /app
 
-# Copy package files first for better caching
+# Copy package files and install ALL dependencies (including dev)
 COPY container_src/package*.json ./
-
-# Install npm dependencies
 RUN npm install
 
-# Copy TypeScript configuration
+# Copy TypeScript configuration and source
 COPY container_src/tsconfig.json ./
-
-# Copy source code
 COPY container_src/src/ ./src/
 
 # Build TypeScript
 RUN npm run build
+
+# Production stage - minimal runtime
+FROM node:22-slim AS production
+
+# Install ONLY runtime dependencies (no build tools)
+RUN apt-get update && \
+    apt-get install -y \
+        python3 \
+        git \
+        ca-certificates \
+        curl && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy package files and install ONLY production dependencies
+COPY container_src/package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy built application from builder stage
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 8080
 

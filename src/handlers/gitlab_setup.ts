@@ -517,7 +517,7 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
 async function configureGitLab(request: Request, origin: string, env: any): Promise<Response> {
   try {
     const data = await request.json();
-    const { gitlabUrl, projectId, token, webhookSecret } = data;
+    const { gitlabUrl = 'https://gitlab.com', projectId, token, webhookSecret } = data;
     
     logWithContext('GITLAB_SETUP', 'Configuring GitLab integration', { 
       gitlabUrl, 
@@ -534,7 +534,7 @@ async function configureGitLab(request: Request, origin: string, env: any): Prom
     }
     
     // Store credentials in GitLabAppConfigDO
-    const configDO = env.GITLAB_APP_CONFIG.get(env.GITLAB_APP_CONFIG.idFromString('config'));
+    const configDO = env.GITLAB_APP_CONFIG.get(env.GITLAB_APP_CONFIG.idFromName('gitlab-config'));
     await configDO.fetch(new Request('http://config/store', {
       method: 'POST',
       body: JSON.stringify({ gitlabUrl, projectId, token, webhookSecret })
@@ -559,7 +559,7 @@ async function configureGitLab(request: Request, origin: string, env: any): Prom
 async function configureGitLabGroup(request: Request, origin: string, env: any): Promise<Response> {
   try {
     const data = await request.json();
-    const { gitlabUrl, groupId, groupPath, groupName, token, webhookSecret } = data;
+    const { gitlabUrl = 'https://gitlab.com', groupId, groupPath, groupName, token, webhookSecret } = data;
     
     logWithContext('GITLAB_SETUP', 'Configuring GitLab group integration', { 
       gitlabUrl, 
@@ -577,7 +577,7 @@ async function configureGitLabGroup(request: Request, origin: string, env: any):
     }
     
     // Store group credentials in GitLabAppConfigDO
-    const configDO = env.GITLAB_APP_CONFIG.get(env.GITLAB_APP_CONFIG.idFromString('config'));
+    const configDO = env.GITLAB_APP_CONFIG.get(env.GITLAB_APP_CONFIG.idFromName('gitlab-config'));
     await configDO.fetch(new Request('http://config/store-group', {
       method: 'POST',
       body: JSON.stringify({ 

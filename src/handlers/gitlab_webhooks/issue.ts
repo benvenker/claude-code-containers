@@ -42,11 +42,11 @@ async function routeToClaudeCodeContainer(
     url: credentials.url
   });
 
-  // Get Claude API key from secure storage
+  // Get Claude API key from secure storage (stored in GitHub Durable Object)
   logWithContext('GITLAB_CLAUDE_ROUTING', 'Retrieving Claude API key');
 
-  const claudeConfigId = env.GITLAB_APP_CONFIG.idFromName('claude-config');
-  const claudeConfigDO = env.GITLAB_APP_CONFIG.get(claudeConfigId);
+  const claudeConfigId = env.GITHUB_APP_CONFIG.idFromName('claude-config');
+  const claudeConfigDO = env.GITHUB_APP_CONFIG.get(claudeConfigId);
   const claudeKeyResponse = await claudeConfigDO.fetch(new Request('http://internal/get-claude-key'));
   const claudeKeyData = await claudeKeyResponse.json();
 
@@ -168,13 +168,15 @@ export async function handleGitLabIssuesEvent(
     logWithContext('GITLAB_ISSUES_EVENT', 'Handling new GitLab issue creation');
 
     try {
-      // Route to Claude Code container for processing
-      logWithContext('GITLAB_ISSUES_EVENT', 'Routing to Claude Code container');
-      await routeToClaudeCodeContainer(data, env, configDO);
+      // TEMPORARY: Skip container processing due to authorization issues
+      logWithContext('GITLAB_ISSUES_EVENT', 'Container processing temporarily disabled - acknowledging webhook');
+      
+      // TODO: Re-enable container processing once authorization is resolved
+      // await routeToClaudeCodeContainer(data, env, configDO);
 
-      logWithContext('GITLAB_ISSUES_EVENT', 'GitLab issue routed to Claude Code container successfully');
+      logWithContext('GITLAB_ISSUES_EVENT', 'GitLab issue acknowledged (container processing disabled)');
 
-      return new Response('GitLab issue processed', { status: 200 });
+      return new Response('GitLab issue acknowledged', { status: 200 });
 
     } catch (error) {
       logWithContext('GITLAB_ISSUES_EVENT', 'Failed to process new GitLab issue', {

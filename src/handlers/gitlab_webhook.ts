@@ -96,7 +96,7 @@ export async function handleGitLabWebhook(request: Request, env: any): Promise<R
     // Get GitLab configuration for this specific project
     logWithContext('GITLAB_WEBHOOK', 'Retrieving GitLab configuration', { projectId });
     
-    const configDO = env.GITLAB_APP_CONFIG.get(env.GITLAB_APP_CONFIG.idFromString('config'));
+    const configDO = env.GITLAB_APP_CONFIG.get(env.GITLAB_APP_CONFIG.idFromName('gitlab-config'));
     
     // First try to get project-specific configuration
     let configResponse = await configDO.fetch(`http://config/get-credentials?project_id=${projectId}`);
