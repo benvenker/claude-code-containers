@@ -1075,7 +1075,8 @@ export interface Env {
 export default {
   async fetch(
     request: Request,
-    env: Env
+    env: Env,
+    ctx: ExecutionContext
   ): Promise<Response> {
     const startTime = Date.now();
     const url = new URL(request.url);
@@ -1142,7 +1143,7 @@ export default {
       else if (pathname === '/webhooks/gitlab') {
         logWithContext('MAIN_HANDLER', 'Routing to GitLab webhook handler');
         routeMatched = true;
-        response = await handleGitLabWebhook(request, env);
+        response = await handleGitLabWebhook(request, env, ctx);
       }
 
       // Container routes

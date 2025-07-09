@@ -4,7 +4,7 @@ import { handleGitLabNoteEvent } from "./gitlab_webhooks/note";
 import { handleGitLabMergeRequestEvent } from "./gitlab_webhooks/merge_request";
 
 // Route GitLab webhook events to specific handlers
-async function routeGitLabEvent(data: any, configDO: any, env: any): Promise<Response> {
+async function routeGitLabEvent(data: any, configDO: any, env: any, ctx: ExecutionContext): Promise<Response> {
   logWithContext('GITLAB_EVENT_ROUTER', 'Routing GitLab event', {
     objectKind: data.object_kind,
     action: data.object_attributes?.action,
@@ -14,7 +14,7 @@ async function routeGitLabEvent(data: any, configDO: any, env: any): Promise<Res
   switch (data.object_kind) {
     case 'issue':
       logWithContext('GITLAB_EVENT_ROUTER', 'Routing to issue handler');
-      return await handleGitLabIssuesEvent(data, env, configDO);
+      return await handleGitLabIssuesEvent(data, env, configDO, ctx);
 
     case 'note':
       logWithContext('GITLAB_EVENT_ROUTER', 'Routing to note handler');
@@ -43,7 +43,7 @@ function verifyGitLabToken(providedToken: string, expectedSecret: string): boole
   return providedToken === expectedSecret;
 }
 
-export async function handleGitLabWebhook(request: Request, env: any): Promise<Response> {
+export async function handleGitLabWebhook(request: Request, env: any, ctx: ExecutionContext): Promise<Response> {
   const startTime = Date.now();
   
   try {
@@ -159,7 +159,7 @@ export async function handleGitLabWebhook(request: Request, env: any): Promise<R
       event
     });
 
-    const eventResponse = await routeGitLabEvent(webhookData, configDO, env);
+    const eventResponse = await routeGitLabEvent(webhookData, configDO, env, ctx);
 
     const processingTime = Date.now() - startTime;
     logWithContext('GITLAB_WEBHOOK', 'Webhook processing completed', {

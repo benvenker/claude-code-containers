@@ -147,7 +147,8 @@ async function routeToClaudeCodeContainer(
 export async function handleGitLabIssuesEvent(
   data: any, 
   env: any, 
-  configDO: any
+  configDO: any,
+  ctx: ExecutionContext
 ): Promise<Response> {
   const action = data.object_attributes?.action;
   const issue = data.object_attributes;
@@ -183,6 +184,9 @@ export async function handleGitLabIssuesEvent(
             issueIid: issue?.iid
           });
         });
+
+      // Use waitUntil to ensure the async processing continues after we return
+      ctx.waitUntil(processingPromise);
 
       // Return immediately to avoid GitLab webhook timeout
       return new Response('GitLab issue accepted for processing', { status: 200 });
