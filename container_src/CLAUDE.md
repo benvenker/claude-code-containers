@@ -2,15 +2,27 @@
 
 This directory contains the containerized Claude Code execution environment that runs in Cloudflare Workers containers.
 
+## Container Startup Requirements
+
+### Critical Constraints
+- **400ms startup deadline**: Container must bind to port 8080 within 400ms
+- **Memory allocation**: Uses "basic" instance type (1 GiB memory) to prevent OOM errors
+- **Port binding**: Must bind to port 8080 immediately to pass Cloudflare's TCP readiness checks
+
+### Startup Optimization
+The container implements a fast startup pattern where the HTTP server binds to port 8080 immediately upon process start, before any other initialization. This prevents Cloudflare from canceling requests due to failed readiness checks.
+
 ## Current Implementation
 
 ### Core Components
 
 1. **main.ts** - Main container server logic:
-   - HTTP server on port 8080
+   - HTTP server on port 8080 with early port binding for Cloudflare compatibility
+   - Fast startup pattern to meet 400ms container startup requirement
    - Issue processing with Claude Code SDK
    - Git workspace management
    - GitHub and GitLab API integration for PRs/comments/MRs
+   - Health endpoint (`/health`) for container readiness checks
 
 2. **github_client.ts** - GitHub API client wrapper:
    - Authenticated GitHub API calls

@@ -63,6 +63,8 @@ Current test coverage across all GitLab features:
 
 Additional infrastructure improvements:
 - **Container Size Optimized**: Multi-stage build reduces image from 1.27GB to 566MB (55% reduction)
+- **Container Memory**: Uses "basic" instance type (1 GiB) to prevent OOM errors
+- **Fast Startup**: Early port binding pattern to meet 400ms startup deadline
 - **Deployment Authorization**: Resolved Cloudflare containers authorization issues
 - **Analysis Tools**: Added `scripts/analyze-container-size.sh` for image optimization
 

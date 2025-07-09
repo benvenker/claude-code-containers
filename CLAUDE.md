@@ -80,7 +80,7 @@ This is a **Cloudflare Workers Container project** that integrates **Claude Code
 - Container enhancement with Claude Code SDK and GitHub API integration
 - Issue detection and routing to Claude Code containers
 
-**✅ GitLab Integration (Phase 2 Complete, Phase 3 Complete, Phase 4.1 Complete):**
+**✅ GitLab Integration (Phase 2-4 Complete):**
 - GitLab webhook handlers with Personal Access Token authentication
 - GitLab API client with connection pooling and retry logic
 - Container integration with GitLab context processing
@@ -89,6 +89,7 @@ This is a **Cloudflare Workers Container project** that integrates **Claude Code
 - GitLab comment processing with @duo-agent mention detection (Phase 3.2) ✅
 - GitLab MR processing with @duo-agent instruction parsing (Phase 3.3) ✅
 - Context-aware processing with enhanced formatting and file/line context (Phase 4.1) ✅
+- Multi-project support with per-project configurations (Phase 4.2) ✅
 - Comprehensive test coverage (73+ tests passing)
 
 ## Detailed Documentation
@@ -110,6 +111,7 @@ For comprehensive technical details, refer to the following documentation:
 - **@docs/features/gitlab-comment-processing.md** - GitLab comment processing with @duo-agent (Phase 3.2) ✅
 - **@docs/features/gitlab-mr-processing.md** - GitLab MR processing with @duo-agent (Phase 3.3) ✅
 - **@docs/features/context-aware-processing.md** - Context-aware processing with enhanced formatting (Phase 4.1) ✅
+- **@docs/features/gitlab-multi-project-support.md** - Multi-project and group-level support (Phase 4.2) ✅
 
 ### Component Documentation
 - **@src/handlers/CLAUDE.md** - Request handlers for GitHub and GitLab webhook processing
@@ -120,6 +122,11 @@ For comprehensive technical details, refer to the following documentation:
 - **@docs/GLAB_CLI_REFERENCE.md** - Comprehensive GitLab CLI (glab) command reference and integration guide
 - **@Plan.md** - Complete implementation plan with phases and tasks
 
+### Deployment & Operations
+- **@docs/container-optimization.md** - Comprehensive container optimization guide
+- **@docs/CONTAINER_FIX_SUMMARY.md** - Container memory configuration and troubleshooting
+- **@docs/DEMO_TEST_PLAN.md** - Comprehensive demo testing procedures
+
 ### Reference Implementation
 - **GitLab Claude Reference**: `/Users/ben/code/gitlab-claude` - Working GitLab integration with webhooks, MRs, and Claude Code
 
@@ -129,6 +136,8 @@ For comprehensive technical details, refer to the following documentation:
 - **Always run `npm run cf-typegen`** after making changes to `wrangler.jsonc`
 - **Use `.dev.vars`** for local secrets (never commit this file)
 - **Workers must start within 400ms** - keep imports and initialization lightweight
+- **Container Memory**: Uses "basic" instance type (1 GiB memory) to prevent OOM errors
+- **Container Startup**: Implements fast startup pattern with early port binding to avoid race conditions
 - **Container Size Optimized**: Multi-stage build reduces final image from 1.27GB to 566MB (55% reduction)
 - **Container Analysis Tools**: Use `scripts/analyze-container-size.sh` to analyze Docker image layers
 
@@ -158,30 +167,14 @@ export default {
 
 ## Container Optimization
 
-### Multi-Stage Build Architecture
-The Dockerfile uses a multi-stage build pattern for optimal image size:
+The container has been optimized for size, memory usage, and startup performance. Key optimizations include:
 
-**Build Stage (`builder`):**
-- Includes all build tools (build-essential, python3-dev, etc.)
-- Installs all dependencies including devDependencies
-- Compiles TypeScript to JavaScript
-- Creates the `dist/` directory with compiled code
+- **Fast Startup**: Early port binding ensures container starts within 400ms deadline
+- **Memory Configuration**: Uses "basic" instance type (1 GiB) to prevent OOM errors  
+- **Image Size**: Multi-stage build reduces final image to 566MB (55% reduction)
+- **Production Build**: Only runtime dependencies included in final image
 
-**Production Stage (`production`):**
-- Only runtime dependencies (python3, git, curl, ca-certificates)
-- Uses `npm ci --only=production` to avoid dev dependencies
-- Copies only the compiled `dist/` directory from build stage
-- Results in 566MB final image (55% reduction from 1.27GB)
-
-### Size Analysis Tools
-- **`scripts/analyze-container-size.sh`** - Analyzes each Docker build stage to identify size contributors
-- **`scripts/optimize-dockerfile.md`** - Documents optimization strategy and expected savings
-
-### Key Optimizations Applied
-1. **Eliminated duplicate Claude Code CLI** - Removed global install, use only local dependency
-2. **Removed unnecessary build tools** from production stage
-3. **Optimized npm installation** - Production-only dependencies with cache cleanup
-4. **Minimal runtime packages** - Only essential packages in final image
+For detailed optimization information, see **@docs/container-optimization.md**
 
 ## Claude Code Memories
 

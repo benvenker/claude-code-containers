@@ -6,8 +6,9 @@ This directory contains the Cloudflare Worker source code that handles the main 
 
 ### Core Components
 
-1. **index.ts** - Main entry point with two classes:
+1. **index.ts** - Main entry point with three classes:
    - `GitHubAppConfigDO` - Durable Object for encrypted credential storage (GitHub apps, Claude API keys)
+   - `GitLabAppConfigDO` - Durable Object for GitLab multi-project and group-level credential storage
    - `MyContainer` - Extended Container class for containerized Claude Code execution
    - Main request handler with routing logic
 
@@ -35,24 +36,28 @@ This directory contains the Cloudflare Worker source code that handles the main 
 - `github_app_config` - App credentials, installation details
 - `installation_tokens` - Cached GitHub tokens with expiry
 - `claude_config` - Encrypted Anthropic API key
+- `gitlab_projects` - Multi-project GitLab configurations (Phase 4.2)
+- `gitlab_groups` - Group-level GitLab configurations (Phase 4.2)
 
 **Security Features:**
 - HMAC-SHA256 webhook signature verification
 - AES-256-GCM encryption for stored credentials
 - Secure token generation and caching
 
-## GitLab Integration Implementation (Phase 2 Complete, Phase 3 Complete)
+## GitLab Integration Implementation (Phase 2 Complete, Phase 3 Complete, Phase 4.1 Complete, Phase 4.2 Complete)
 
 ### ✅ Completed GitLab Features:
 
 1. **GitLab Webhook Handling** - Complete webhook processing with token verification
 2. **GitLab Setup Interface** - Web-based Personal Access Token configuration
-3. **GitLab Authentication** - Secure credential storage in GitLabAppConfigDO
+3. **GitLab Authentication** - Secure credential storage in GitLabAppConfigDO with multi-project and group-level support
 4. **Event Routing** - Support for issue, note, and merge_request events
 5. **@duo-agent Detection** - Parse mentions from comments and MR descriptions
 6. **GitLab Issue Processing** - Auto-process new GitLab issues (GitHub parity) ✅
 7. **GitLab Comment Processing** - @duo-agent mention detection and response handling (Phase 3.2) ✅
 8. **GitLab MR Processing** - @duo-agent instruction parsing from MR descriptions (Phase 3.3) ✅
+9. **Context-Aware Processing** - Enhanced response formatting with file/line context and syntax highlighting (Phase 4.1) ✅
+10. **Multi-Project Support** - Single Worker instance can handle multiple GitLab projects with individual configurations (Phase 4.2) ✅
 
 ### ✅ Implemented Files:
 
@@ -62,7 +67,9 @@ This directory contains the Cloudflare Worker source code that handles the main 
 - `gitlab_webhooks/issue.ts` - GitLab issue event handler (Phase 3.1) ✅
 - `gitlab_webhooks/note.ts` - GitLab comment processing handler (Phase 3.2) ✅
 - `gitlab_webhooks/merge_request.ts` - GitLab MR processing handler (Phase 3.3) ✅
-- GitLabAppConfigDO class in `index.ts` - Encrypted credential storage
+- `gitlab_webhooks/context_aware.ts` - Context-aware processing utilities (Phase 4.1) ✅
+- `gitlab_webhooks/note_enhanced.ts` - Enhanced note handler with context-aware features (Phase 4.1) ✅
+- GitLabAppConfigDO class in `index.ts` - Encrypted credential storage with multi-project and group-level support
 
 **Event Processing:**
 - Issue events: Auto-process new GitLab issues (GitHub parity)
@@ -82,3 +89,6 @@ This directory contains the Cloudflare Worker source code that handles the main 
 - Support GitLab Personal Access Tokens with project/group scope
 - GitLab project namespace and clone URL handling
 - Discussion-threaded comment responses
+- Context-aware processing with file/line information and syntax highlighting
+- Multi-project support with per-project configuration and webhook secrets
+- Group-level support for automatic project discovery within GitLab groups
