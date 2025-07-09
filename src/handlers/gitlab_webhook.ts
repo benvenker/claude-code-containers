@@ -1,5 +1,35 @@
 import { logWithContext } from "../log";
 
+// Route GitLab webhook events to specific handlers
+async function routeGitLabEvent(data: any, configDO: any, env: any): Promise<Response> {
+  logWithContext('GITLAB_EVENT_ROUTER', 'Routing GitLab event', {
+    objectKind: data.object_kind,
+    action: data.object_attributes?.action,
+    project: data.project?.path_with_namespace
+  });
+
+  switch (data.object_kind) {
+    case 'issue':
+      logWithContext('GITLAB_EVENT_ROUTER', 'Routing to issue handler');
+      return new Response('Processed issue event', { status: 200 });
+
+    case 'note':
+      logWithContext('GITLAB_EVENT_ROUTER', 'Routing to note handler');
+      return new Response('Processed note event', { status: 200 });
+
+    case 'merge_request':
+      logWithContext('GITLAB_EVENT_ROUTER', 'Routing to merge request handler');
+      return new Response('Processed merge_request event', { status: 200 });
+
+    default:
+      logWithContext('GITLAB_EVENT_ROUTER', 'Unhandled GitLab event', {
+        objectKind: data.object_kind,
+        availableEvents: ['issue', 'note', 'merge_request']
+      });
+      return new Response('Event type not supported', { status: 200 });
+  }
+}
+
 // Direct token comparison for GitLab webhooks (simpler than GitHub HMAC)
 function verifyGitLabToken(providedToken: string, expectedSecret: string): boolean {
   if (!expectedSecret) {
@@ -94,15 +124,23 @@ export async function handleGitLabWebhook(request: Request, env: any): Promise<R
       return new Response('Invalid token', { status: 401 });
     }
 
+    // Route to appropriate event handler based on object_kind
+    logWithContext('GITLAB_WEBHOOK', 'Routing to event handler', {
+      objectKind: webhookData.object_kind,
+      event
+    });
+
+    const eventResponse = await routeGitLabEvent(webhookData, configDO, env);
+
     const processingTime = Date.now() - startTime;
     logWithContext('GITLAB_WEBHOOK', 'Webhook processing completed', {
       event,
       projectId,
-      processingTimeMs: processingTime
+      processingTimeMs: processingTime,
+      responseStatus: eventResponse.status
     });
 
-    // Return success response for now
-    return new Response('OK', { status: 200 });
+    return eventResponse;
 
   } catch (error) {
     const processingTime = Date.now() - startTime;
