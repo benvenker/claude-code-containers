@@ -9,6 +9,15 @@ import { GitLabClient } from './gitlab_client.js';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
 
+// Log container startup
+console.log('[CONTAINER_STARTUP] Container starting...', {
+  port: PORT,
+  nodeVersion: process.version,
+  platform: process.platform,
+  arch: process.arch,
+  timestamp: new Date().toISOString()
+});
+
 // Simplified container response interface
 interface ContainerResponse {
   success: boolean;
@@ -1189,13 +1198,21 @@ async function processIssueHandler(req: http.IncomingMessage, res: http.ServerRe
 
 // GitLab processing handler
 async function processGitLabHandler(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-  logWithContext('GITLAB_HANDLER', 'Processing GitLab request');
+  logWithContext('GITLAB_HANDLER', 'Processing GitLab request - v3');
 
-  // Read request body to get environment variables
-  let requestBody = '';
-  for await (const chunk of req) {
-    requestBody += chunk;
-  }
+  try {
+    // Read request body to get environment variables
+    let requestBody = '';
+    logWithContext('GITLAB_HANDLER', 'Reading request body...');
+    
+    for await (const chunk of req) {
+      requestBody += chunk;
+    }
+    
+    logWithContext('GITLAB_HANDLER', 'Request body received', {
+      bodyLength: requestBody.length,
+      bodyPreview: requestBody.substring(0, 100)
+    });
 
   let gitlabContextFromRequest: any = {};
   if (requestBody) {
@@ -1245,7 +1262,12 @@ async function processGitLabHandler(req: http.IncomingMessage, res: http.ServerR
   // Process based on detected mode
   try {
     const mode = detectProcessingMode();
-    logWithContext('GITLAB_HANDLER', 'Detected processing mode', { mode });
+    logWithContext('GITLAB_HANDLER', 'Detected processing mode', { 
+      mode,
+      PROCESSING_MODE: process.env.PROCESSING_MODE,
+      GITLAB_URL: process.env.GITLAB_URL,
+      hasGitLabToken: !!process.env.GITLAB_TOKEN
+    });
 
     const response = await processGitLabMode(mode);
     
@@ -1270,6 +1292,18 @@ async function processGitLabHandler(req: http.IncomingMessage, res: http.ServerR
 
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(errorResponse));
+  }
+  } catch (error) {
+    logWithContext('GITLAB_HANDLER', 'Unexpected error in GitLab handler', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ 
+      error: 'Internal server error in GitLab handler',
+      message: error instanceof Error ? error.message : String(error)
+    }));
   }
 }
 
@@ -1297,7 +1331,16 @@ export async function requestHandler(req: http.IncomingMessage, res: http.Server
       await processIssueHandler(req, res);
     } else if (url === '/process-gitlab') {
       logWithContext('REQUEST_HANDLER', 'Routing to GitLab process handler');
-      await processGitLabHandler(req, res);
+      try {
+        await processGitLabHandler(req, res);
+        logWithContext('REQUEST_HANDLER', 'GitLab handler completed');
+      } catch (error) {
+        logWithContext('REQUEST_HANDLER', 'GitLab handler error', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        throw error;
+      }
     } else {
       logWithContext('REQUEST_HANDLER', 'Route not found', { url });
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -1331,7 +1374,15 @@ export async function requestHandler(req: http.IncomingMessage, res: http.Server
 }
 
 // Start server
+logWithContext('SERVER', 'Creating HTTP server...');
 const server = http.createServer(requestHandler);
+
+server.on('error', (error) => {
+  logWithContext('SERVER', 'Server error', {
+    error: error.message,
+    stack: error.stack
+  });
+});
 
 server.listen(PORT, () => {
   const address = server.address();
