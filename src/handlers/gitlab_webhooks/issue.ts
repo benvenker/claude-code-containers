@@ -168,15 +168,13 @@ export async function handleGitLabIssuesEvent(
     logWithContext('GITLAB_ISSUES_EVENT', 'Handling new GitLab issue creation');
 
     try {
-      // TEMPORARY: Skip container processing due to authorization issues
-      logWithContext('GITLAB_ISSUES_EVENT', 'Container processing temporarily disabled - acknowledging webhook');
-      
-      // TODO: Re-enable container processing once authorization is resolved
-      // await routeToClaudeCodeContainer(data, env, configDO);
+      // Route to Claude Code container for processing
+      logWithContext('GITLAB_ISSUES_EVENT', 'Routing to Claude Code container');
+      await routeToClaudeCodeContainer(data, env, configDO);
 
-      logWithContext('GITLAB_ISSUES_EVENT', 'GitLab issue acknowledged (container processing disabled)');
+      logWithContext('GITLAB_ISSUES_EVENT', 'GitLab issue routed to Claude Code container successfully');
 
-      return new Response('GitLab issue acknowledged', { status: 200 });
+      return new Response('GitLab issue processed', { status: 200 });
 
     } catch (error) {
       logWithContext('GITLAB_ISSUES_EVENT', 'Failed to process new GitLab issue', {
