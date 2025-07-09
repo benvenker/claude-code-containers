@@ -161,7 +161,13 @@ async function configureGitLab(request: Request, origin: string, env: any): Prom
       });
     }
     
-    // For now, just return success (actual storage will be implemented later)
+    // Store credentials in GitLabAppConfigDO
+    const configDO = env.GITLAB_APP_CONFIG.get(env.GITLAB_APP_CONFIG.idFromName(projectId));
+    await configDO.fetch(new Request('http://internal/store', {
+      method: 'POST',
+      body: JSON.stringify({ gitlabUrl, projectId, token, webhookSecret })
+    }));
+    
     return new Response(JSON.stringify({ 
       success: true, 
       message: 'GitLab integration configured successfully',
