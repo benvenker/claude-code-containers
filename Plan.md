@@ -141,7 +141,7 @@ Adapt the CloudFlare Workers container project to support comprehensive GitLab i
 - [ ] Monitoring and logging
   - [ ] Add structured logging
   - [ ] Create health check endpoints
-  - [ ] Add metrics collection
+- [ ] Add metrics collection
 
 ---
 
