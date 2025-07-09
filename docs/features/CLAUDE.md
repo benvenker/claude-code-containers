@@ -32,9 +32,9 @@ All features are implemented using Test-Driven Development (TDD):
 ## Test Coverage
 
 Current test coverage across all GitLab features:
-- Worker layer tests: 30 tests (including 11 note handler tests)
-- Container integration tests: 31 tests
-- **Total: 61 tests passing** (41 passing, some tests temporarily disabled)
+- Worker layer tests: 54 tests (including 15 webhook, 12 setup, 6 issue, 11 note, 10 MR handler tests)
+- Container integration tests: 19 tests (GitLab API client and processing)
+- **Total: 73 tests passing** (all GitLab integration tests)
 
 ## Next Steps
 

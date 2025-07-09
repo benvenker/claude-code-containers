@@ -33,7 +33,7 @@ This directory contains the containerized Claude Code execution environment that
 - Generates pull requests or comments based on changes
 - Handles both code modifications and analysis-only responses
 
-## GitLab Integration Implementation (Phase 2.3 Complete, Phase 3.1 Complete, Phase 3.2 Complete)
+## GitLab Integration Implementation (Phase 2.3 Complete, Phase 3 Complete)
 
 ### ✅ Completed Features:
 
@@ -43,6 +43,7 @@ This directory contains the containerized Claude Code execution environment that
 4. **Context Formatters** - Issue, comment, and MR context preparation for Claude
 5. **GitLab Issue Processing** - Full integration with issue webhook events (Phase 3.1) ✅
 6. **GitLab Comment Processing** - @duo-agent mention detection and container processing (Phase 3.2) ✅
+7. **GitLab MR Processing** - @duo-agent instruction parsing from MR descriptions (Phase 3.3) ✅
 
 ### ✅ Implemented Components:
 
