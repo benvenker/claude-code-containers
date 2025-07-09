@@ -99,14 +99,14 @@ Adapt the CloudFlare Workers container project to support comprehensive GitLab i
   - [x] Handle threaded comment responses
 
 ### 3.3 MR Processing (Description Parsing)
-- [ ] MR webhook handler
-  - [ ] Create `src/handlers/gitlab_webhooks/merge_request.ts`
-  - [ ] Parse MR creation events
-  - [ ] Extract MR description instructions
-- [ ] MR processing logic
-  - [ ] Parse @duo-agent instructions from MR descriptions
-  - [ ] Execute Claude Code on MR context
-  - [ ] Handle MR updates and commits
+- [x] MR webhook handler
+  - [x] Create `src/handlers/gitlab_webhooks/merge_request.ts`
+  - [x] Parse MR creation events
+  - [x] Extract MR description instructions
+- [x] MR processing logic
+  - [x] Parse @duo-agent instructions from MR descriptions
+  - [x] Execute Claude Code on MR context
+  - [x] Handle MR updates and commits
 
 ---
 
@@ -228,10 +228,10 @@ Adapt the CloudFlare Workers container project to support comprehensive GitLab i
 - [ ] GitLab API client functional
 
 ### Phase 3 Success Criteria
-- [x] All trigger types implemented and working (2/3 complete - Issues ✅, Comments ✅)
+- [x] All trigger types implemented and working (3/3 complete - Issues ✅, Comments ✅, MR ✅)
 - [x] Issue processing matches GitHub functionality
 - [x] Comment processing responds to @duo-agent
-- [ ] MR processing handles description instructions
+- [x] MR processing handles description instructions
 
 ### Phase 4 Success Criteria
 - [ ] Advanced features implemented
@@ -311,10 +311,11 @@ Adapt the CloudFlare Workers container project to support comprehensive GitLab i
 - **2.2 GitLab API Client** - ✅ COMPLETED (19/19 tests passing)  
 - **2.3 Container Integration** - ✅ COMPLETED (12/12 tests passing)
 
-**Phase 3: Trigger Type Implementation** - 🔄 IN PROGRESS
+**Phase 3: Trigger Type Implementation** - ✅ COMPLETED
 - **3.1 GitLab Issues Processing (GitHub Parity)** - ✅ COMPLETED (6/6 tests passing)
 - **3.2 Comment Processing (@duo-agent)** - ✅ COMPLETED (11/11 tests passing)
+- **3.3 MR Processing (Description Parsing)** - ✅ COMPLETED (10/10 tests passing)
 
 **Next Steps:**
-- Continue Phase 3: Trigger Type Implementation
-- Add MR processing (description parsing) - Phase 3.3
+- Phase 3 Complete! All GitLab trigger types implemented
+- Ready for Phase 4: Advanced Features or deployment
