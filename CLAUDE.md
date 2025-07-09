@@ -55,7 +55,7 @@ This is a **Cloudflare Workers Container project** that integrates **Claude Code
 ## Configuration Files
 
 - **`wrangler.jsonc`** - Workers configuration with container bindings and Durable Objects
-- **`Dockerfile`** - Multi-stage build with Node.js, Python, Git, and Claude Code CLI
+- **`Dockerfile`** - Multi-stage build with Node.js, Python, Git, GitLab CLI (glab), and Claude Code CLI
 - **`worker-configuration.d.ts`** - Auto-generated types (run `npm run cf-typegen` after config changes)
 - **`.dev.vars`** - Local environment variables (not committed to git)
 - **`container_src/package.json`** - Container dependencies including Claude Code SDK
@@ -116,7 +116,8 @@ For comprehensive technical details, refer to the following documentation:
 - **@src/CLAUDE.md** - Worker layer architecture and implementation details
 - **@container_src/CLAUDE.md** - Container GitLab integration and processing modes
 
-### Project Management
+### Tools & References
+- **@docs/GLAB_CLI_REFERENCE.md** - Comprehensive GitLab CLI (glab) command reference and integration guide
 - **@Plan.md** - Complete implementation plan with phases and tasks
 
 ### Reference Implementation
@@ -128,6 +129,7 @@ For comprehensive technical details, refer to the following documentation:
 - **Always run `npm run cf-typegen`** after making changes to `wrangler.jsonc`
 - **Use `.dev.vars`** for local secrets (never commit this file)
 - **Workers must start within 400ms** - keep imports and initialization lightweight
+- **GitLab CLI Available**: Containers include `glab` CLI tool for comprehensive GitLab operations - see `@docs/GLAB_CLI_REFERENCE.md`
 
 ## Development Patterns
 
