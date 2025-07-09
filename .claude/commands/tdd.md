@@ -17,7 +17,7 @@ of mind.
 Sometimes you will be given one task. Sometimes you will be given a task list.
 The list might be provided as a git repo issue list, for example.
 
-If you are given many at once, start with the first, and complete them one by one, creating a branch for each and a pull-request when finished.
+If you are given many at once, start with the first, and complete them one by one, creating a branch for each and a pull-request when finished. With that said, use subagents when you can to help you complete the overall task.
 
 ## Keep notes
 Create a markdown file under the docs/features/ folder for the feature. If you are creating a feature branch, use the same name.

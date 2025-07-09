@@ -184,7 +184,7 @@ describe('GitLab Webhook Handler', () => {
         body: JSON.stringify({ 
           object_kind: 'issue',
           object_attributes: { 
-            action: 'open',
+            action: 'close', // Use close instead of open to avoid triggering container processing
             id: 123,
             iid: 1,
             title: 'Test Issue',
@@ -217,8 +217,28 @@ describe('GitLab Webhook Handler', () => {
         },
         body: JSON.stringify({ 
           object_kind: 'note',
-          object_attributes: { noteable_type: 'Issue', note: '@duo-agent help me' },
-          project: { id: 123 }
+          object_attributes: { 
+            id: 123,
+            noteable_type: 'Issue', 
+            note: 'Regular comment without @duo-agent mention',
+            system: false,
+            author_id: 456,
+            noteable_id: 789,
+            discussion_id: 'abc123'
+          },
+          user: { id: 456, username: 'developer', name: 'Developer Name', bot: false },
+          project: { 
+            id: 123,
+            name: 'test-project',
+            path_with_namespace: 'group/test-project',
+            git_http_url: 'https://gitlab.com/group/test-project.git'
+          },
+          issue: {
+            id: 789,
+            iid: 1,
+            title: 'Test Issue',
+            description: 'Test description'
+          }
         })
       });
 

@@ -22,6 +22,11 @@ This directory contains all request handlers for the Cloudflare Worker, supporti
 - **`gitlab_webhook.ts`** - Main GitLab webhook processor with token verification
 - **`gitlab_setup.ts`** - GitLab Personal Access Token configuration interface
 
+### GitLab Webhook Events (gitlab_webhooks/)
+- **`issue.ts`** - GitLab issue event handler that triggers Claude Code containers (Phase 3.1 ✅)
+- **`note.ts`** - GitLab comment processing for @duo-agent mentions (Phase 3.2 🔄)
+- **`merge_request.ts`** - GitLab MR processing for @duo-agent instructions (Phase 3.3 🔄)
+
 ### GitLab Features Implemented
 
 **gitlab_webhook.ts:**
@@ -78,9 +83,10 @@ This directory contains all request handlers for the Cloudflare Worker, supporti
 - OAuth flow testing
 - Signature verification testing
 
-### GitLab Tests (46 tests total)
+### GitLab Tests (52 tests total)
 - **gitlab_webhook.test.ts** (15 tests) - Event routing and authentication
 - **gitlab_setup.test.ts** (12 tests) - Setup interface and token validation
+- **gitlab_webhooks/issue.test.ts** (6 tests) - GitLab issue processing (Phase 3.1)
 - **container integration tests** (19 tests) - GitLab API client and processing
 
 ## Usage Patterns

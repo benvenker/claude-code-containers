@@ -20,6 +20,8 @@ Key principles:
 </context>
 
 <workflow>
+Use subagents and follow the below plan:
+
 ## Phase 1: Discovery and Analysis
 
 1. **Find all CLAUDE.md files**:
