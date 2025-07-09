@@ -80,7 +80,7 @@ This is a **Cloudflare Workers Container project** that integrates **Claude Code
 - Container enhancement with Claude Code SDK and GitHub API integration
 - Issue detection and routing to Claude Code containers
 
-**✅ GitLab Integration (Phase 2 Complete, Phase 3 Complete):**
+**✅ GitLab Integration (Phase 2 Complete, Phase 3 Complete, Phase 4.1 Complete):**
 - GitLab webhook handlers with Personal Access Token authentication
 - GitLab API client with connection pooling and retry logic
 - Container integration with GitLab context processing
@@ -88,7 +88,8 @@ This is a **Cloudflare Workers Container project** that integrates **Claude Code
 - GitLab issue processing with GitHub parity (Phase 3.1) ✅
 - GitLab comment processing with @duo-agent mention detection (Phase 3.2) ✅
 - GitLab MR processing with @duo-agent instruction parsing (Phase 3.3) ✅
-- Comprehensive test coverage (73 tests passing)
+- Context-aware processing with enhanced formatting and file/line context (Phase 4.1) ✅
+- Comprehensive test coverage (73+ tests passing)
 
 ## Detailed Documentation
 
@@ -108,6 +109,7 @@ For comprehensive technical details, refer to the following documentation:
 - **@docs/features/gitlab-issues-processing.md** - GitLab issue processing (Phase 3.1) ✅
 - **@docs/features/gitlab-comment-processing.md** - GitLab comment processing with @duo-agent (Phase 3.2) ✅
 - **@docs/features/gitlab-mr-processing.md** - GitLab MR processing with @duo-agent (Phase 3.3) ✅
+- **@docs/features/context-aware-processing.md** - Context-aware processing with enhanced formatting (Phase 4.1) ✅
 
 ### Component Documentation
 - **@src/handlers/CLAUDE.md** - Request handlers for GitHub and GitLab webhook processing

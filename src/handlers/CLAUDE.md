@@ -26,6 +26,8 @@ This directory contains all request handlers for the Cloudflare Worker, supporti
 - **`issue.ts`** - GitLab issue event handler that triggers Claude Code containers (Phase 3.1 ✅)
 - **`note.ts`** - GitLab comment processing for @duo-agent mentions (Phase 3.2 ✅)
 - **`merge_request.ts`** - GitLab MR processing for @duo-agent instructions (Phase 3.3 ✅)
+- **`context_aware.ts`** - Context-aware processing with enhanced formatting (Phase 4.1 ✅)
+- **`note_enhanced.ts`** - Enhanced note handler with context-aware features (Phase 4.1 ✅)
 
 ### GitLab Features Implemented
 
@@ -83,12 +85,14 @@ This directory contains all request handlers for the Cloudflare Worker, supporti
 - OAuth flow testing
 - Signature verification testing
 
-### GitLab Tests (73 tests total)
+### GitLab Tests (84+ tests total)
 - **gitlab_webhook.test.ts** (15 tests) - Event routing and authentication
 - **gitlab_setup.test.ts** (12 tests) - Setup interface and token validation
 - **gitlab_webhooks/issue.test.ts** (6 tests) - GitLab issue processing (Phase 3.1)
 - **gitlab_webhooks/note.test.ts** (11 tests) - GitLab comment processing (Phase 3.2)
 - **gitlab_webhooks/merge_request.test.ts** (10 tests) - GitLab MR processing (Phase 3.3)
+- **gitlab_webhooks/context_aware.test.ts** (11 tests) - Context-aware processing (Phase 4.1)
+- **gitlab_webhooks/note_enhanced.test.ts** (3 tests) - Enhanced note handler (Phase 4.1)
 - **container integration tests** (19 tests) - GitLab API client and processing
 
 ## Usage Patterns
@@ -102,6 +106,7 @@ This directory contains all request handlers for the Cloudflare Worker, supporti
 1. Configure token via `/gitlab-setup`
 2. Set up GitLab webhook pointing to `/webhooks/gitlab`
 3. Use @duo-agent mentions in comments or MR descriptions
+4. Enhanced responses include syntax highlighting and context-aware formatting
 
 ## Error Handling
 
