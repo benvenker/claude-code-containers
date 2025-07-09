@@ -28,7 +28,7 @@ npx wrangler versions upload        # Upload new version with preview URL
 
 This is a **Cloudflare Workers Container project** that integrates **Claude Code** with **GitHub and GitLab** for automated issue processing and comment-based assistance. It combines:
 - **TypeScript Worker** (`src/index.ts`) - Main request router and platform integration
-- **Node.js Container** (`container_src/src/main.ts`) - Containerized Claude Code environment running on port 8080
+- **Node.js Container** (`container_src/src/main.ts`) - Containerized Claude Code environment running on port 8080 (566MB optimized image)
 - **Durable Objects** - Multiple DO classes for encrypted credential storage and container management
 
 ### Supported Platforms
@@ -55,7 +55,7 @@ This is a **Cloudflare Workers Container project** that integrates **Claude Code
 ## Configuration Files
 
 - **`wrangler.jsonc`** - Workers configuration with container bindings and Durable Objects
-- **`Dockerfile`** - Multi-stage build with Node.js, Python, Git, GitLab CLI (glab), and Claude Code CLI
+- **`Dockerfile`** - Optimized multi-stage build with Node.js, Python, Git, and Claude Code CLI (566MB final image)
 - **`worker-configuration.d.ts`** - Auto-generated types (run `npm run cf-typegen` after config changes)
 - **`.dev.vars`** - Local environment variables (not committed to git)
 - **`container_src/package.json`** - Container dependencies including Claude Code SDK
@@ -125,11 +125,12 @@ For comprehensive technical details, refer to the following documentation:
 
 ## Important Notes
 
-- **Containers are a Beta feature** - API may change. The `cf-containers` library version is pinned to 0.0.7.
+- **Containers are a Beta feature** - API may change. The `cf-containers` library version is pinned to 0.0.8.
 - **Always run `npm run cf-typegen`** after making changes to `wrangler.jsonc`
 - **Use `.dev.vars`** for local secrets (never commit this file)
 - **Workers must start within 400ms** - keep imports and initialization lightweight
-- **GitLab CLI Available**: Containers include `glab` CLI tool for comprehensive GitLab operations - see `@docs/GLAB_CLI_REFERENCE.md`
+- **Container Size Optimized**: Multi-stage build reduces final image from 1.27GB to 566MB (55% reduction)
+- **Container Analysis Tools**: Use `scripts/analyze-container-size.sh` to analyze Docker image layers
 
 ## Development Patterns
 
@@ -155,7 +156,36 @@ export default {
 - **Environment Variables**: Access via `env.VARIABLE_NAME`
 - **KV/D1/R2**: Configure in wrangler.jsonc, access via env bindings
 
+## Container Optimization
+
+### Multi-Stage Build Architecture
+The Dockerfile uses a multi-stage build pattern for optimal image size:
+
+**Build Stage (`builder`):**
+- Includes all build tools (build-essential, python3-dev, etc.)
+- Installs all dependencies including devDependencies
+- Compiles TypeScript to JavaScript
+- Creates the `dist/` directory with compiled code
+
+**Production Stage (`production`):**
+- Only runtime dependencies (python3, git, curl, ca-certificates)
+- Uses `npm ci --only=production` to avoid dev dependencies
+- Copies only the compiled `dist/` directory from build stage
+- Results in 566MB final image (55% reduction from 1.27GB)
+
+### Size Analysis Tools
+- **`scripts/analyze-container-size.sh`** - Analyzes each Docker build stage to identify size contributors
+- **`scripts/optimize-dockerfile.md`** - Documents optimization strategy and expected savings
+
+### Key Optimizations Applied
+1. **Eliminated duplicate Claude Code CLI** - Removed global install, use only local dependency
+2. **Removed unnecessary build tools** from production stage
+3. **Optimized npm installation** - Production-only dependencies with cache cleanup
+4. **Minimal runtime packages** - Only essential packages in final image
+
 ## Claude Code Memories
 
 - Use context7 MCP server whenever you need docs. Use our package.json to get the current versions of dependencies and packages
 - Remember you have a reference implementation of similar functionality with webhooks, gitlab MRs, and claude code at /Users/ben/code/gitlab-claude
+- Container deployment issues resolved: Updated wrangler to 4.24.0 with containers:write scope
+- Container size optimized from 1.27GB to 566MB using multi-stage build pattern

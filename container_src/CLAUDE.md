@@ -2,7 +2,7 @@
 
 This directory contains the containerized Claude Code execution environment that runs in Cloudflare Workers containers.
 
-## Current GitHub Implementation
+## Current Implementation
 
 ### Core Components
 
@@ -10,13 +10,19 @@ This directory contains the containerized Claude Code execution environment that
    - HTTP server on port 8080
    - Issue processing with Claude Code SDK
    - Git workspace management
-   - GitHub API integration for PRs/comments
+   - GitHub and GitLab API integration for PRs/comments/MRs
 
 2. **github_client.ts** - GitHub API client wrapper:
    - Authenticated GitHub API calls
    - Repository operations
    - Issue/PR comment creation
    - Pull request management
+
+3. **gitlab_client.ts** - GitLab API client wrapper:
+   - Authenticated GitLab API calls with connection pooling
+   - Repository operations and MR management
+   - Issue/MR comment creation with discussion threading
+   - Exponential backoff retry logic for resilience
 
 ### Key Functions
 
@@ -29,9 +35,10 @@ This directory contains the containerized Claude Code execution environment that
 
 **Claude Code Integration:**
 - Uses `@anthropic-ai/claude-code` SDK
-- Runs in isolated workspace per issue
-- Generates pull requests or comments based on changes
+- Runs in isolated workspace per issue/MR
+- Generates pull requests/merge requests or comments based on changes
 - Handles both code modifications and analysis-only responses
+- Supports both GitHub and GitLab platforms
 
 ## GitLab Integration Implementation (Phase 2.3 Complete, Phase 3 Complete, Phase 4.1 Complete)
 
@@ -88,3 +95,22 @@ This directory contains the containerized Claude Code execution environment that
 - Enhanced response formatting with syntax highlighting (25+ languages)
 - Context-aware processing with collapsible sections and GitLab URL references
 - Discussion thread context integration for better conversation flow
+
+## Container Optimization
+
+### Multi-Stage Build
+The container uses an optimized multi-stage Dockerfile:
+- **Build stage**: Includes all build tools and compiles TypeScript
+- **Production stage**: Only runtime dependencies and compiled code
+- **Final size**: 566MB (55% reduction from 1.27GB)
+
+### Key Optimizations
+1. **Eliminated duplicate dependencies** - Removed global Claude Code CLI install
+2. **Production-only npm install** - Uses `npm ci --only=production` 
+3. **Minimal runtime packages** - Only essential packages in final image
+4. **Efficient layer caching** - Optimized Docker layer structure
+
+### Development vs Production
+- **Development**: Full build tools available for compilation
+- **Production**: Minimal runtime environment for optimal performance
+- **Size impact**: Build tools removed from final image saves ~700MB
