@@ -75,13 +75,15 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
       
       <div class="form-group">
         <label>Setup Type:</label>
-        <div>
+        <div style="margin: 10px 0; padding: 15px; border: 2px solid #007bff; border-radius: 4px; background: #f0f8ff;">
           <input type="radio" id="projectMode" name="setupType" value="project" checked>
-          <label for="projectMode" style="display: inline; margin-left: 5px;">Single Project</label>
+          <label for="projectMode" style="display: inline; margin-left: 8px; cursor: pointer; font-weight: bold; color: #007bff;">📁 Single Project</label>
+          <p style="margin: 5px 0 0 25px; font-size: 14px; color: #666;">Configure one specific GitLab project</p>
         </div>
-        <div>
+        <div style="margin: 10px 0; padding: 15px; border: 2px solid #28a745; border-radius: 4px; background: #f0fff4;">
           <input type="radio" id="groupMode" name="setupType" value="group">
-          <label for="groupMode" style="display: inline; margin-left: 5px;">Group Level</label>
+          <label for="groupMode" style="display: inline; margin-left: 8px; cursor: pointer; font-weight: bold; color: #28a745;">🏢 Group Level</label>
+          <p style="margin: 5px 0 0 25px; font-size: 14px; color: #666;">Configure an entire GitLab group (all projects automatically supported)</p>
         </div>
       </div>
       
@@ -108,12 +110,23 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
       <div class="info" id="groupInstructions" style="display: none;">
         <h3>Group Setup Instructions:</h3>
         <ol>
-          <li><strong>Create a Group Access Token</strong> (recommended):
+          <li><strong>Create an Access Token</strong>:
             <ul>
-              <li>Go to Group Settings → Access Tokens</li>
-              <li>Name: "Claude Code Integration"</li>
-              <li>Scopes: <code>api</code>, <code>read_repository</code>, <code>write_repository</code></li>
-              <li>Role: <code>Developer</code> or <code>Maintainer</code></li>
+              <li><strong>Option 1 - Group Access Token</strong> (if available):
+                <ul>
+                  <li>Go to Group Settings → Access Tokens</li>
+                  <li>Name: "Claude Code Integration"</li>
+                  <li>Scopes: <code>api</code>, <code>read_repository</code>, <code>write_repository</code></li>
+                  <li>Role: <code>Developer</code> or <code>Maintainer</code></li>
+                </ul>
+              </li>
+              <li><strong>Option 2 - Personal Access Token</strong> (if Group tokens unavailable):
+                <ul>
+                  <li>Go to User Settings → Access Tokens</li>
+                  <li>Name: "Claude Code Integration"</li>
+                  <li>Scopes: <code>api</code>, <code>read_repository</code>, <code>write_repository</code></li>
+                </ul>
+              </li>
             </ul>
           </li>
           <li>Get your GitLab group ID and path from group settings</li>
@@ -121,7 +134,7 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
           <li>Use the same webhook secret for all projects in the group</li>
         </ol>
         <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-top: 10px;">
-          <strong>⚠️ Security Note:</strong> Group Access Tokens are more secure than Personal Access Tokens as they're limited to the specific group.
+          <strong>⚠️ Note:</strong> Group Access Tokens require GitLab Premium in some instances. Use Personal Access Token if unavailable.
         </div>
       </div>
       
@@ -173,25 +186,79 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
         document.querySelectorAll('input[name="setupType"]').forEach(radio => {
           radio.addEventListener('change', function() {
             const isGroupMode = this.value === 'group';
+            console.log('🔄 Setup type changed to:', isGroupMode ? 'group' : 'project');
+            console.log('🔄 Radio button value:', this.value);
+            console.log('🔄 isGroupMode:', isGroupMode);
             
             // Show/hide instructions
-            document.getElementById('projectInstructions').style.display = isGroupMode ? 'none' : 'block';
-            document.getElementById('groupInstructions').style.display = isGroupMode ? 'block' : 'none';
+            const projectInstructions = document.getElementById('projectInstructions');
+            const groupInstructions = document.getElementById('groupInstructions');
+            
+            if (projectInstructions) {
+              projectInstructions.style.display = isGroupMode ? 'none' : 'block';
+              console.log('📋 Project instructions display:', projectInstructions.style.display);
+            }
+            if (groupInstructions) {
+              groupInstructions.style.display = isGroupMode ? 'block' : 'none';
+              console.log('📋 Group instructions display:', groupInstructions.style.display);
+            }
             
             // Show/hide form fields
-            document.getElementById('projectIdGroup').style.display = isGroupMode ? 'none' : 'block';
-            document.getElementById('groupIdGroup').style.display = isGroupMode ? 'block' : 'none';
-            document.getElementById('groupPathGroup').style.display = isGroupMode ? 'block' : 'none';
-            document.getElementById('groupNameGroup').style.display = isGroupMode ? 'block' : 'none';
+            const projectIdGroup = document.getElementById('projectIdGroup');
+            const groupIdGroup = document.getElementById('groupIdGroup');
+            const groupPathGroup = document.getElementById('groupPathGroup');
+            const groupNameGroup = document.getElementById('groupNameGroup');
+            
+            if (projectIdGroup) {
+              projectIdGroup.style.display = isGroupMode ? 'none' : 'block';
+              console.log('📝 Project ID group display:', projectIdGroup.style.display);
+            }
+            if (groupIdGroup) {
+              groupIdGroup.style.display = isGroupMode ? 'block' : 'none';
+              console.log('📝 Group ID group display:', groupIdGroup.style.display);
+            }
+            if (groupPathGroup) {
+              groupPathGroup.style.display = isGroupMode ? 'block' : 'none';
+              console.log('📝 Group path group display:', groupPathGroup.style.display);
+            }
+            if (groupNameGroup) {
+              groupNameGroup.style.display = isGroupMode ? 'block' : 'none';
+              console.log('📝 Group name group display:', groupNameGroup.style.display);
+            }
             
             // Update button text
-            document.getElementById('submitButton').textContent = isGroupMode ? 'Configure GitLab Group' : 'Configure GitLab Project';
+            const submitButton = document.getElementById('submitButton');
+            if (submitButton) {
+              submitButton.textContent = isGroupMode ? 'Configure GitLab Group' : 'Configure GitLab Project';
+              console.log('🔘 Button text updated to:', submitButton.textContent);
+            }
             
             // Update required fields
-            document.getElementById('projectId').required = !isGroupMode;
-            document.getElementById('groupId').required = isGroupMode;
-            document.getElementById('groupPath').required = isGroupMode;
+            const projectId = document.getElementById('projectId');
+            const groupId = document.getElementById('groupId');
+            const groupPath = document.getElementById('groupPath');
+            
+            if (projectId) {
+              projectId.required = !isGroupMode;
+              console.log('✅ Project ID required:', projectId.required);
+            }
+            if (groupId) {
+              groupId.required = isGroupMode;
+              console.log('✅ Group ID required:', groupId.required);
+            }
+            if (groupPath) {
+              groupPath.required = isGroupMode;
+              console.log('✅ Group path required:', groupPath.required);
+            }
+            
+            console.log('✨ Setup type switching complete');
           });
+        });
+        
+        // Debug: Log when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+          console.log('GitLab setup page loaded');
+          console.log('Found radio buttons:', document.querySelectorAll('input[name="setupType"]').length);
         });
         
         document.getElementById('setupForm').addEventListener('submit', async (e) => {
