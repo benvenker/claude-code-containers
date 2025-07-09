@@ -70,6 +70,7 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
       <div class="info">
         <h3>Choose Your Setup Type:</h3>
         <p><strong>Single Project:</strong> Configure one specific GitLab project</p>
+        <p><strong>Multiple Projects:</strong> Configure multiple individual GitLab projects</p>
         <p><strong>Group Level:</strong> Configure an entire GitLab group (all projects automatically supported)</p>
       </div>
       
@@ -79,6 +80,11 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
           <input type="radio" id="projectMode" name="setupType" value="project" checked>
           <label for="projectMode" style="display: inline; margin-left: 8px; cursor: pointer; font-weight: bold; color: #007bff;">📁 Single Project</label>
           <p style="margin: 5px 0 0 25px; font-size: 14px; color: #666;">Configure one specific GitLab project</p>
+        </div>
+        <div style="margin: 10px 0; padding: 15px; border: 2px solid #ffc107; border-radius: 4px; background: #fffbf0;">
+          <input type="radio" id="multiMode" name="setupType" value="multi">
+          <label for="multiMode" style="display: inline; margin-left: 8px; cursor: pointer; font-weight: bold; color: #ffc107;">📚 Multiple Projects</label>
+          <p style="margin: 5px 0 0 25px; font-size: 14px; color: #666;">Configure multiple individual GitLab projects (4+ repos)</p>
         </div>
         <div style="margin: 10px 0; padding: 15px; border: 2px solid #28a745; border-radius: 4px; background: #f0fff4;">
           <input type="radio" id="groupMode" name="setupType" value="group">
@@ -104,6 +110,27 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
         </ol>
         <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-top: 10px;">
           <strong>⚠️ Security Note:</strong> Project Access Tokens are more secure than Personal Access Tokens as they're limited to the specific project.
+        </div>
+      </div>
+      
+      <div class="info" id="multiInstructions" style="display: none;">
+        <h3>Multiple Projects Setup Instructions:</h3>
+        <ol>
+          <li><strong>Create Project Access Tokens</strong> (recommended):
+            <ul>
+              <li>For each project: Go to Project Settings → Access Tokens</li>
+              <li>Name: "Claude Code Integration"</li>
+              <li>Scopes: <code>api</code>, <code>read_repository</code>, <code>write_repository</code></li>
+              <li>Role: <code>Developer</code> or <code>Maintainer</code></li>
+            </ul>
+          </li>
+          <li>Alternative: Use one Personal Access Token for all projects</li>
+          <li>Configure webhook URL: <code>${webhookUrl}</code> on ALL projects</li>
+          <li>Use different webhook secrets for each project (for security)</li>
+          <li>Add projects one by one using the form below</li>
+        </ol>
+        <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-top: 10px;">
+          <strong>💡 Tip:</strong> You can mix Project Access Tokens and Personal Access Tokens across different projects.
         </div>
       </div>
       
@@ -165,15 +192,58 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
           <input type="text" id="groupName" name="groupName" placeholder="My Organization">
         </div>
         
-        <div class="form-group">
-          <label for="token">Access Token:</label>
-          <input type="password" id="token" name="token" placeholder="glpat-xxxxxxxxxxxxxxxxxxxx" required>
-          <small>Use Project Access Token (for single project) or Group Access Token (for group setup)</small>
+        <!-- Multiple Projects Form -->
+        <div id="multiProjectsForm" style="display: none;">
+          <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 20px;">
+            <h4>📋 Configured Projects</h4>
+            <div id="projectsList">
+              <p style="color: #666; font-style: italic;">No projects configured yet. Add your first project below.</p>
+            </div>
+          </div>
+          
+          <h4>➕ Add New Project</h4>
+          <div class="form-group">
+            <label for="multiProjectId">Project ID:</label>
+            <input type="text" id="multiProjectId" placeholder="123456">
+          </div>
+          
+          <div class="form-group">
+            <label for="multiProjectName">Project Name (optional):</label>
+            <input type="text" id="multiProjectName" placeholder="My Backend API">
+          </div>
+          
+          <div class="form-group">
+            <label for="multiProjectNamespace">Project Namespace:</label>
+            <input type="text" id="multiProjectNamespace" placeholder="company/backend-api">
+            <small>The full project path as shown in GitLab URLs</small>
+          </div>
+          
+          <div class="form-group">
+            <label for="multiToken">Access Token for this project:</label>
+            <input type="password" id="multiToken" placeholder="glpat-xxxxxxxxxxxxxxxxxxxx">
+            <small>Project Access Token (recommended) or Personal Access Token</small>
+          </div>
+          
+          <div class="form-group">
+            <label for="multiWebhookSecret">Webhook Secret for this project:</label>
+            <input type="password" id="multiWebhookSecret" placeholder="Generate a unique secret for this project">
+          </div>
+          
+          <button type="button" id="addProjectButton" style="background: #ffc107; color: #000; margin-bottom: 20px;">Add Project to List</button>
         </div>
         
-        <div class="form-group">
-          <label for="webhookSecret">Webhook Secret:</label>
-          <input type="password" id="webhookSecret" name="webhookSecret" placeholder="Generate a random secret" required>
+        <!-- Single/Group Project Form -->
+        <div id="singleGroupForm">
+          <div class="form-group">
+            <label for="token">Access Token:</label>
+            <input type="password" id="token" name="token" placeholder="glpat-xxxxxxxxxxxxxxxxxxxx" required>
+            <small>Use Project Access Token (for single project) or Group Access Token (for group setup)</small>
+          </div>
+          
+          <div class="form-group">
+            <label for="webhookSecret">Webhook Secret:</label>
+            <input type="password" id="webhookSecret" name="webhookSecret" placeholder="Generate a random secret" required>
+          </div>
         </div>
         
         <button type="submit" id="submitButton">Configure GitLab Project</button>
@@ -183,54 +253,71 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
       
       <script>
         // Handle setup type switching
+        let configuredProjects = [];
+        
         document.querySelectorAll('input[name="setupType"]').forEach(radio => {
           radio.addEventListener('change', function() {
-            const isGroupMode = this.value === 'group';
-            console.log('🔄 Setup type changed to:', isGroupMode ? 'group' : 'project');
-            console.log('🔄 Radio button value:', this.value);
-            console.log('🔄 isGroupMode:', isGroupMode);
+            const mode = this.value; // 'project', 'multi', or 'group'
+            console.log('🔄 Setup type changed to:', mode);
             
             // Show/hide instructions
             const projectInstructions = document.getElementById('projectInstructions');
+            const multiInstructions = document.getElementById('multiInstructions');
             const groupInstructions = document.getElementById('groupInstructions');
             
             if (projectInstructions) {
-              projectInstructions.style.display = isGroupMode ? 'none' : 'block';
-              console.log('📋 Project instructions display:', projectInstructions.style.display);
+              projectInstructions.style.display = (mode === 'project') ? 'block' : 'none';
+            }
+            if (multiInstructions) {
+              multiInstructions.style.display = (mode === 'multi') ? 'block' : 'none';
             }
             if (groupInstructions) {
-              groupInstructions.style.display = isGroupMode ? 'block' : 'none';
-              console.log('📋 Group instructions display:', groupInstructions.style.display);
+              groupInstructions.style.display = (mode === 'group') ? 'block' : 'none';
             }
             
-            // Show/hide form fields
+            // Show/hide form sections
             const projectIdGroup = document.getElementById('projectIdGroup');
             const groupIdGroup = document.getElementById('groupIdGroup');
             const groupPathGroup = document.getElementById('groupPathGroup');
             const groupNameGroup = document.getElementById('groupNameGroup');
+            const multiProjectsForm = document.getElementById('multiProjectsForm');
+            const singleGroupForm = document.getElementById('singleGroupForm');
             
+            // Single project fields
             if (projectIdGroup) {
-              projectIdGroup.style.display = isGroupMode ? 'none' : 'block';
-              console.log('📝 Project ID group display:', projectIdGroup.style.display);
+              projectIdGroup.style.display = (mode === 'project') ? 'block' : 'none';
             }
+            
+            // Group fields
             if (groupIdGroup) {
-              groupIdGroup.style.display = isGroupMode ? 'block' : 'none';
-              console.log('📝 Group ID group display:', groupIdGroup.style.display);
+              groupIdGroup.style.display = (mode === 'group') ? 'block' : 'none';
             }
             if (groupPathGroup) {
-              groupPathGroup.style.display = isGroupMode ? 'block' : 'none';
-              console.log('📝 Group path group display:', groupPathGroup.style.display);
+              groupPathGroup.style.display = (mode === 'group') ? 'block' : 'none';
             }
             if (groupNameGroup) {
-              groupNameGroup.style.display = isGroupMode ? 'block' : 'none';
-              console.log('📝 Group name group display:', groupNameGroup.style.display);
+              groupNameGroup.style.display = (mode === 'group') ? 'block' : 'none';
+            }
+            
+            // Multi-project form
+            if (multiProjectsForm) {
+              multiProjectsForm.style.display = (mode === 'multi') ? 'block' : 'none';
+            }
+            if (singleGroupForm) {
+              singleGroupForm.style.display = (mode === 'multi') ? 'none' : 'block';
             }
             
             // Update button text
             const submitButton = document.getElementById('submitButton');
             if (submitButton) {
-              submitButton.textContent = isGroupMode ? 'Configure GitLab Group' : 'Configure GitLab Project';
-              console.log('🔘 Button text updated to:', submitButton.textContent);
+              if (mode === 'project') {
+                submitButton.textContent = 'Configure GitLab Project';
+              } else if (mode === 'multi') {
+                submitButton.textContent = 'Configure All Projects';
+                submitButton.style.display = configuredProjects.length > 0 ? 'block' : 'none';
+              } else if (mode === 'group') {
+                submitButton.textContent = 'Configure GitLab Group';
+              }
             }
             
             // Update required fields
@@ -239,21 +326,95 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
             const groupPath = document.getElementById('groupPath');
             
             if (projectId) {
-              projectId.required = !isGroupMode;
-              console.log('✅ Project ID required:', projectId.required);
+              projectId.required = (mode === 'project');
             }
             if (groupId) {
-              groupId.required = isGroupMode;
-              console.log('✅ Group ID required:', groupId.required);
+              groupId.required = (mode === 'group');
             }
             if (groupPath) {
-              groupPath.required = isGroupMode;
-              console.log('✅ Group path required:', groupPath.required);
+              groupPath.required = (mode === 'group');
             }
             
             console.log('✨ Setup type switching complete');
           });
         });
+        
+        // Handle adding projects to the list
+        document.addEventListener('click', function(e) {
+          if (e.target.id === 'addProjectButton') {
+            const projectId = document.getElementById('multiProjectId').value;
+            const projectName = document.getElementById('multiProjectName').value;
+            const projectNamespace = document.getElementById('multiProjectNamespace').value;
+            const token = document.getElementById('multiToken').value;
+            const webhookSecret = document.getElementById('multiWebhookSecret').value;
+            
+            if (!projectId || !projectNamespace || !token || !webhookSecret) {
+              alert('Please fill in all required fields (Project ID, Namespace, Token, Webhook Secret)');
+              return;
+            }
+            
+            // Add to configured projects
+            const project = {
+              projectId,
+              projectName: projectName || `Project ${projectId}`,
+              projectNamespace,
+              token,
+              webhookSecret
+            };
+            
+            configuredProjects.push(project);
+            console.log('➕ Added project:', project);
+            
+            // Update the projects list display
+            updateProjectsList();
+            
+            // Clear the form
+            document.getElementById('multiProjectId').value = '';
+            document.getElementById('multiProjectName').value = '';
+            document.getElementById('multiProjectNamespace').value = '';
+            document.getElementById('multiToken').value = '';
+            document.getElementById('multiWebhookSecret').value = '';
+            
+            // Show submit button
+            const submitButton = document.getElementById('submitButton');
+            if (submitButton) {
+              submitButton.style.display = 'block';
+            }
+          }
+        });
+        
+        function updateProjectsList() {
+          const projectsList = document.getElementById('projectsList');
+          if (configuredProjects.length === 0) {
+            projectsList.innerHTML = '<p style="color: #666; font-style: italic;">No projects configured yet. Add your first project below.</p>';
+            return;
+          }
+          
+          let html = '';
+          configuredProjects.forEach((project, index) => {
+            html += `
+              <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-bottom: 10px;">
+                <strong>${project.projectName}</strong> (ID: ${project.projectId})
+                <br><small>📁 ${project.projectNamespace}</small>
+                <br><small>🔑 Token: ${project.token.substring(0, 8)}...</small>
+                <br><small>🔐 Secret: ${project.webhookSecret.substring(0, 8)}...</small>
+                <button type="button" onclick="removeProject(${index})" style="background: #dc3545; color: white; border: none; padding: 2px 8px; border-radius: 3px; font-size: 12px; margin-top: 5px;">Remove</button>
+              </div>
+            `;
+          });
+          projectsList.innerHTML = html;
+        }
+        
+        function removeProject(index) {
+          configuredProjects.splice(index, 1);
+          updateProjectsList();
+          
+          // Hide submit button if no projects
+          const submitButton = document.getElementById('submitButton');
+          if (submitButton && configuredProjects.length === 0) {
+            submitButton.style.display = 'none';
+          }
+        }
         
         // Debug: Log when page loads
         document.addEventListener('DOMContentLoaded', function() {
@@ -264,30 +425,81 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
         document.getElementById('setupForm').addEventListener('submit', async (e) => {
           e.preventDefault();
           
-          const formData = new FormData(e.target);
-          const data = Object.fromEntries(formData);
-          
+          const mode = document.querySelector('input[name="setupType"]:checked').value;
           document.getElementById('result').innerHTML = '<div>Configuring...</div>';
           
           try {
-            const isGroupMode = document.querySelector('input[name="setupType"]:checked').value === 'group';
-            const endpoint = isGroupMode ? '/gitlab-setup/configure-group' : '/gitlab-setup/configure';
-            
-            const response = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data)
-            });
-            
-            const result = await response.json();
-            
-            if (response.ok) {
-              const configType = isGroupMode ? 'group' : 'project';
-              document.getElementById('result').innerHTML = 
-                '<div class="success">✅ GitLab ' + configType + ' configured successfully!<br>Webhook URL: ' + result.webhookUrl + '</div>';
+            if (mode === 'multi') {
+              // Handle multiple projects submission
+              if (configuredProjects.length === 0) {
+                document.getElementById('result').innerHTML = 
+                  '<div class="error">❌ Please add at least one project to the list</div>';
+                return;
+              }
+              
+              // Submit each project individually
+              let successCount = 0;
+              let errors = [];
+              
+              for (const project of configuredProjects) {
+                try {
+                  const response = await fetch('/gitlab-setup/configure', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      gitlabUrl: document.getElementById('gitlabUrl').value,
+                      projectId: project.projectId,
+                      token: project.token,
+                      webhookSecret: project.webhookSecret,
+                      projectName: project.projectName,
+                      projectNamespace: project.projectNamespace
+                    })
+                  });
+                  
+                  if (response.ok) {
+                    successCount++;
+                  } else {
+                    const error = await response.json();
+                    errors.push(`${project.projectName}: ${error.error}`);
+                  }
+                } catch (error) {
+                  errors.push(`${project.projectName}: ${error.message}`);
+                }
+              }
+              
+              let resultHtml = '';
+              if (successCount > 0) {
+                resultHtml += `<div class="success">✅ Successfully configured ${successCount} project(s)</div>`;
+              }
+              if (errors.length > 0) {
+                resultHtml += `<div class="error">❌ Errors:<br>${errors.join('<br>')}</div>`;
+              }
+              
+              document.getElementById('result').innerHTML = resultHtml;
+              
             } else {
-              document.getElementById('result').innerHTML = 
-                '<div class="error">❌ Error: ' + result.error + '</div>';
+              // Handle single project or group submission
+              const formData = new FormData(e.target);
+              const data = Object.fromEntries(formData);
+              
+              const endpoint = (mode === 'group') ? '/gitlab-setup/configure-group' : '/gitlab-setup/configure';
+              
+              const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+              });
+              
+              const result = await response.json();
+              
+              if (response.ok) {
+                const configType = (mode === 'group') ? 'group' : 'project';
+                document.getElementById('result').innerHTML = 
+                  '<div class="success">✅ GitLab ' + configType + ' configured successfully!<br>Webhook URL: ' + result.webhookUrl + '</div>';
+              } else {
+                document.getElementById('result').innerHTML = 
+                  '<div class="error">❌ Error: ' + result.error + '</div>';
+              }
             }
           } catch (error) {
             document.getElementById('result').innerHTML = 
