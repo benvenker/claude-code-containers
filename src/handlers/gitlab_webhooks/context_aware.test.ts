@@ -57,7 +57,12 @@ describe('Context-Aware Processing', () => {
         old_line: 42
       };
 
-      const result = await extractFileLineContext(positionData, mockConfigDO);
+      const mockCredentials = {
+        token: 'test-token',
+        url: 'https://gitlab.com',
+        projectId: '123'
+      };
+      const result = await extractFileLineContext(positionData, mockCredentials);
       
       expect(result).toEqual({
         filePath: 'src/auth.js',
@@ -69,18 +74,23 @@ describe('Context-Aware Processing', () => {
     });
 
     it('should return null when no position data available', async () => {
-      const result = await extractFileLineContext(null, mockConfigDO);
+      const result = await extractFileLineContext(null, null);
       expect(result).toBeNull();
     });
   });
 
   describe('extractDiscussionThreadContext', () => {
     it('should fetch discussion thread context from GitLab API', async () => {
+      const mockCredentials = {
+        token: 'test-token',
+        url: 'https://gitlab.com',
+        projectId: '123'
+      };
       const result = await extractDiscussionThreadContext(
         'discussion-123',
         1,
         'MergeRequest',
-        mockConfigDO
+        mockCredentials
       );
       
       expect(result).toEqual({
@@ -95,7 +105,7 @@ describe('Context-Aware Processing', () => {
         null,
         1,
         'MergeRequest',
-        mockConfigDO
+        null
       );
       
       expect(result).toBeNull();
@@ -117,10 +127,12 @@ describe('Context-Aware Processing', () => {
 
       const result = formatContextAwareResponse(context);
       
-      expect(result).toContain('## Code Review for src/auth.js:42');
+      expect(result).toContain('## 🔍 Code Review: `src/auth.js` (Line 42)');
       expect(result).toContain('```javascript');
       expect(result).toContain('function authenticate()');
       expect(result).toContain('This function looks good but could use better error handling.');
+      expect(result).toContain('📋 Commit Information');
+      expect(result).toContain('context-aware processing');
     });
 
     it('should format response with discussion context for threaded comments', () => {
@@ -131,7 +143,8 @@ describe('Context-Aware Processing', () => {
           threadComments: [
             { author: 'user1', body: 'Initial comment' },
             { author: 'user2', body: 'Follow-up question' }
-          ]
+          ],
+          totalComments: 2
         },
         userPrompt: 'Can you clarify this?',
         response: 'Based on the discussion above, here is the clarification...'
@@ -139,10 +152,11 @@ describe('Context-Aware Processing', () => {
 
       const result = formatContextAwareResponse(context);
       
-      expect(result).toContain('## Discussion Context');
-      expect(result).toContain('**user1:** Initial comment');
-      expect(result).toContain('**user2:** Follow-up question');
+      expect(result).toContain('## 💬 Discussion Context (2 comments)');
+      expect(result).toContain('**@user1:** Initial comment');
+      expect(result).toContain('**@user2:** Follow-up question');
       expect(result).toContain('Based on the discussion above');
+      expect(result).toContain('context-aware processing');
     });
   });
 
@@ -169,7 +183,12 @@ describe('Context-Aware Processing', () => {
         }
       };
 
-      const result = await enhanceMRCommentContext(noteData, mockConfigDO);
+      const mockCredentials = {
+        token: 'test-token',
+        url: 'https://gitlab.com',
+        projectId: '123'
+      };
+      const result = await enhanceMRCommentContext(noteData, mockCredentials);
       
       expect(result).toEqual({
         fileContext: {
@@ -203,7 +222,12 @@ describe('Context-Aware Processing', () => {
         }
       };
 
-      const result = await enhanceMRCommentContext(noteData, mockConfigDO);
+      const mockCredentials = {
+        token: 'test-token',
+        url: 'https://gitlab.com',
+        projectId: '123'
+      };
+      const result = await enhanceMRCommentContext(noteData, mockCredentials);
       
       expect(result).toEqual({
         fileContext: null,

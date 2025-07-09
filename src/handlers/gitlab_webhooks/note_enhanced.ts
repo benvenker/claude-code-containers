@@ -146,13 +146,21 @@ async function routeToEnhancedClaudeCodeContainer(
         discussionId: note.discussion_id,
         threadComments: [],
         totalComments: 0
+      }),
+      
+      // Context-aware processing flag
+      CONTEXT_AWARE_PROCESSING: 'true',
+      ENHANCED_CONTEXT: JSON.stringify({
+        hasFileContext: false,
+        hasThreadContext: !!note.discussion_id,
+        triggerType: 'issue_comment'
       })
     };
   } else if (isMRComment) {
     const mergeRequest = noteData.merge_request;
     
     // Get enhanced context for MR comments
-    const enhancedContext = await enhanceMRCommentContext(noteData, configDO);
+    const enhancedContext = await enhanceMRCommentContext(noteData, credentials);
     
     noteContext = {
       ...baseContext,
@@ -175,6 +183,14 @@ async function routeToEnhancedClaudeCodeContainer(
       // Enhanced discussion context
       ...(enhancedContext.threadContext && {
         THREAD_CONTEXT: JSON.stringify(enhancedContext.threadContext)
+      }),
+      
+      // Context-aware processing flag
+      CONTEXT_AWARE_PROCESSING: 'true',
+      ENHANCED_CONTEXT: JSON.stringify({
+        hasFileContext: !!enhancedContext.fileContext,
+        hasThreadContext: !!enhancedContext.threadContext,
+        triggerType: 'mr_comment'
       })
     };
   } else {

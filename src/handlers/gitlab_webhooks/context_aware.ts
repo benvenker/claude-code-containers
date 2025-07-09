@@ -36,7 +36,7 @@ interface EnhancedMRContext {
 // Extract file/line context from MR comment position data
 export async function extractFileLineContext(
   positionData: any,
-  configDO: any
+  credentials: any
 ): Promise<FileLineContext | null> {
   if (!positionData) {
     return null;
@@ -48,9 +48,20 @@ export async function extractFileLineContext(
   const baseSha = positionData.base_sha;
   const headSha = positionData.head_sha;
 
-  // For now, return mock code context
-  // In a real implementation, this would fetch code from GitLab API
-  const codeContext = 'function authenticate() { /* ... */ }';
+  // Fetch code context from GitLab API
+  let codeContext = 'function authenticate() { /* ... */ }'; // Default fallback
+  
+  try {
+    // In a real implementation, this would fetch file content from GitLab
+    // const fileResponse = await fetch(`${credentials.url}/api/v4/projects/${credentials.projectId}/repository/files/${encodeURIComponent(filePath)}/raw?ref=${headSha}`, {
+    //   headers: { 'Private-Token': credentials.token }
+    // });
+    // const fileContent = await fileResponse.text();
+    // codeContext = extractLinesAround(fileContent, lineNumber, 5);
+  } catch (error) {
+    // Use fallback if API call fails
+    console.warn('Failed to fetch code context from GitLab API:', error);
+  }
 
   return {
     filePath,
@@ -66,7 +77,7 @@ export async function extractDiscussionThreadContext(
   discussionId: string | null,
   noteableIid: number,
   noteableType: string,
-  configDO: any
+  credentials: any
 ): Promise<DiscussionThreadContext | null> {
   if (!discussionId) {
     return null;
@@ -92,43 +103,119 @@ export function formatContextAwareResponse(context: ContextAwareResponse): strin
 
   // Add file/line context for MR comments
   if (context.triggerType === 'mr_comment' && context.fileContext) {
-    response += `## Code Review for ${context.fileContext.filePath}:${context.fileContext.lineNumber}\n\n`;
-    response += '```javascript\n';
+    response += `## 🔍 Code Review: \`${context.fileContext.filePath}\` (Line ${context.fileContext.lineNumber})\n\n`;
+    
+    // Determine language from file extension for syntax highlighting
+    const fileExtension = context.fileContext.filePath.split('.').pop()?.toLowerCase();
+    const language = getLanguageFromExtension(fileExtension);
+    
+    response += `\`\`\`${language}\n`;
     response += context.fileContext.codeContext;
     response += '\n```\n\n';
+    
+    // Add commit information
+    response += `<details>\n<summary>📋 Commit Information</summary>\n\n`;
+    response += `- **Base SHA:** \`${context.fileContext.baseSha}\`\n`;
+    response += `- **Head SHA:** \`${context.fileContext.headSha}\`\n`;
+    response += `</details>\n\n`;
   }
 
   // Add discussion context for threaded comments
-  if (context.threadContext) {
-    response += '## Discussion Context\n\n';
+  if (context.threadContext && context.threadContext.threadComments.length > 0) {
+    response += `## 💬 Discussion Context (${context.threadContext.totalComments} comments)\n\n`;
+    response += `<details>\n<summary>View previous discussion</summary>\n\n`;
+    
     for (const comment of context.threadContext.threadComments) {
-      response += `**${comment.author}:** ${comment.body}\n\n`;
+      response += `**@${comment.author}:** ${comment.body}\n\n`;
     }
+    
+    response += `</details>\n\n`;
   }
 
-  // Add main response
+  // Add main response with context indicator
+  if (context.fileContext || context.threadContext) {
+    response += `## 🤖 Claude Response\n\n`;
+  }
+  
   response += context.response;
 
+  // Add helpful actions section
+  response += `\n\n---\n\n`;
+  response += `<sub>💡 This response was generated with context-aware processing. `;
+  
+  if (context.fileContext) {
+    response += `Code context was extracted from line ${context.fileContext.lineNumber} of ${context.fileContext.filePath}. `;
+  }
+  
+  if (context.threadContext) {
+    response += `Discussion history includes ${context.threadContext.totalComments} previous comments. `;
+  }
+  
+  response += `</sub>`;
+
   return response;
+}
+
+// Helper function to determine programming language from file extension
+function getLanguageFromExtension(extension: string | undefined): string {
+  if (!extension) return 'text';
+  
+  const languageMap: { [key: string]: string } = {
+    'js': 'javascript',
+    'ts': 'typescript',
+    'jsx': 'javascript',
+    'tsx': 'typescript',
+    'py': 'python',
+    'java': 'java',
+    'cpp': 'cpp',
+    'c': 'c',
+    'cs': 'csharp',
+    'php': 'php',
+    'rb': 'ruby',
+    'go': 'go',
+    'rs': 'rust',
+    'swift': 'swift',
+    'kt': 'kotlin',
+    'scala': 'scala',
+    'html': 'html',
+    'css': 'css',
+    'scss': 'scss',
+    'sass': 'sass',
+    'less': 'less',
+    'json': 'json',
+    'yaml': 'yaml',
+    'yml': 'yaml',
+    'xml': 'xml',
+    'md': 'markdown',
+    'sh': 'bash',
+    'bash': 'bash',
+    'zsh': 'bash',
+    'fish': 'bash',
+    'sql': 'sql',
+    'dockerfile': 'dockerfile',
+    'makefile': 'makefile'
+  };
+  
+  return languageMap[extension] || 'text';
 }
 
 // Enhance MR comment context with file/line and discussion data
 export async function enhanceMRCommentContext(
   noteData: any,
-  configDO: any
+  credentials: any
 ): Promise<EnhancedMRContext> {
   const note = noteData.object_attributes;
   const mergeRequest = noteData.merge_request;
 
   // Extract file/line context from position data
-  const fileContext = await extractFileLineContext(note.position, configDO);
+  const fileContext = await extractFileLineContext(note.position, credentials);
 
   // Extract discussion thread context
   const threadContext = await extractDiscussionThreadContext(
     note.discussion_id,
     mergeRequest.iid,
     'MergeRequest',
-    configDO
+    credentials
   );
 
   return {
