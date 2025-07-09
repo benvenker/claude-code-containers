@@ -63,14 +63,14 @@ Adapt the CloudFlare Workers container project to support comprehensive GitLab i
   - [x] Create methods for issues, comments, MRs
 
 ### 2.3 Container Integration
-- [ ] Update container main logic
-  - [ ] Modify `container_src/src/main.ts` for GitLab context
-  - [ ] Add GitLab event processing modes
-  - [ ] Update environment variable handling
-- [ ] Create GitLab context formatters
-  - [ ] Issue context formatter
-  - [ ] Comment context formatter
-  - [ ] MR context formatter
+- [x] Update container main logic
+  - [x] Modify `container_src/src/main.ts` for GitLab context
+  - [x] Add GitLab event processing modes
+  - [x] Update environment variable handling
+- [x] Create GitLab context formatters
+  - [x] Issue context formatter
+  - [x] Comment context formatter
+  - [x] MR context formatter
 
 ---
 
