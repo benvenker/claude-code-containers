@@ -26,6 +26,10 @@
 			{
 				"class_name": "GitHubAppConfigDO",
 				"name": "GITHUB_APP_CONFIG"
+			},
+			{
+				"class_name": "GitLabAppConfigDO",
+				"name": "GITLAB_APP_CONFIG"
 			}
 		]
 	},
@@ -41,6 +45,12 @@
 				"GitHubAppConfigDO"
 			],
 			"tag": "v2"
+		},
+		{
+			"new_sqlite_classes": [
+				"GitLabAppConfigDO"
+			],
+			"tag": "v3"
 		}
 	]
 }

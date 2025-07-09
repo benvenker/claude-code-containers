@@ -10,11 +10,20 @@ RUN apt-get update && \
         git \
         build-essential \
         python3-dev \
-        ca-certificates && \
+        ca-certificates \
+        curl && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Claude Code CLI globally
 RUN npm install -g @anthropic-ai/claude-code
+
+# Install GitLab CLI (glab)
+# Using the official installation script for Linux
+RUN curl -sL https://gitlab.com/gitlab-org/cli/-/releases/permalink/latest/downloads/glab_Linux_x86_64.tar.gz | \
+    tar -xz -C /tmp && \
+    mv /tmp/bin/glab /usr/local/bin/ && \
+    chmod +x /usr/local/bin/glab && \
+    rm -rf /tmp/bin
 
 # Set destination for COPY
 WORKDIR /app

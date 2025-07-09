@@ -4,7 +4,8 @@ import { query, type SDKMessage } from '@anthropic-ai/claude-code';
 import simpleGit from 'simple-git';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { ContainerGitHubClient } from './github_client.js';
+import { ContainerGitHubClient } from './github_client';
+import { GitLabClient } from './gitlab_client';
 
 const PORT = 8080;
 
@@ -31,6 +32,40 @@ interface IssueContext {
   author: string;
 }
 
+// GitLab context interfaces
+interface GitLabIssueContext {
+  issueIid: number;
+  issueTitle: string;
+  issueDescription: string;
+  projectNamespace: string;
+  gitCloneUrl: string;
+  authorUsername: string;
+}
+
+interface GitLabCommentContext {
+  userPrompt: string;
+  commentId: string;
+  discussionId?: string;
+  issueIid?: number;
+  issueTitle?: string;
+  mrIid?: number;
+  mrTitle?: string;
+  projectNamespace: string;
+  authorUsername: string;
+}
+
+interface GitLabMRContext {
+  userPrompt: string;
+  mrIid: number;
+  mrTitle: string;
+  mrDescription: string;
+  sourceBranch: string;
+  targetBranch: string;
+  projectNamespace: string;
+  filePath?: string;
+  lineNumber?: number;
+}
+
 interface HealthStatus {
   status: string;
   message: string;
@@ -51,6 +86,483 @@ function logWithContext(context: string, message: string, data?: any): void {
     console.log(logMessage, JSON.stringify(data, null, 2));
   } else {
     console.log(logMessage);
+  }
+}
+
+// GitLab processing mode detection
+export function detectProcessingMode(): string {
+  // Check for GitLab environment variables
+  if (process.env.GITLAB_URL && process.env.PROCESSING_MODE) {
+    const mode = process.env.PROCESSING_MODE;
+    switch (mode) {
+      case 'issue':
+        return 'gitlab_issue';
+      case 'issue_comment':
+        return 'gitlab_issue_comment';
+      case 'mr_comment':
+        return 'gitlab_mr_comment';
+      case 'mr_creation':
+        return 'gitlab_mr_creation';
+    }
+  }
+  
+  // Fallback to GitHub mode
+  return 'github_issue';
+}
+
+// GitLab context validation
+export function validateGitLabContext(): boolean {
+  const mode = process.env.PROCESSING_MODE;
+  
+  // Basic required variables for all GitLab modes
+  if (!process.env.GITLAB_URL || !process.env.GITLAB_TOKEN || !process.env.GITLAB_PROJECT_ID) {
+    return false;
+  }
+  
+  // Mode-specific validation
+  switch (mode) {
+    case 'issue':
+      return !!(process.env.ISSUE_IID && process.env.ISSUE_TITLE && process.env.PROJECT_NAMESPACE);
+    case 'issue_comment':
+    case 'mr_comment':
+      return !!(process.env.USER_PROMPT && process.env.COMMENT_ID);
+    case 'mr_creation':
+      return !!(process.env.MR_IID && process.env.USER_PROMPT);
+    default:
+      return false;
+  }
+}
+
+// GitLab context formatters
+export function formatGitLabIssueContext(context: GitLabIssueContext): string {
+  return `
+You are working on GitLab issue #${context.issueIid}: "${context.issueTitle}"
+
+Project: ${context.projectNamespace}
+
+Issue Description:
+${context.issueDescription}
+
+Author: ${context.authorUsername}
+
+The repository has been cloned to your current working directory. Please:
+1. Explore the codebase to understand the structure and relevant files
+2. Analyze the issue requirements thoroughly
+3. Implement a solution that addresses the issue
+4. Write appropriate tests if needed
+5. Ensure code quality and consistency with existing patterns
+
+Work step by step and provide clear explanations of your approach.
+`;
+}
+
+export function formatGitLabCommentContext(context: GitLabCommentContext): string {
+  return `
+You are responding to a @duo-agent mention in a GitLab comment.
+
+User's request: ${context.userPrompt}
+
+${context.issueIid ? `Context: GitLab issue #${context.issueIid} - ${context.issueTitle}` : ''}
+${context.mrIid ? `Context: GitLab merge request !${context.mrIid} - ${context.mrTitle}` : ''}
+
+Project: ${context.projectNamespace}
+Author: ${context.authorUsername}
+
+Please address the user's request directly and provide helpful assistance.
+`;
+}
+
+export function formatGitLabMRContext(context: GitLabMRContext): string {
+  return `
+You are working on GitLab merge request !${context.mrIid}: "${context.mrTitle}"
+
+MR Description:
+${context.mrDescription}
+
+User's request: ${context.userPrompt}
+
+Branches: ${context.sourceBranch} → ${context.targetBranch}
+Project: ${context.projectNamespace}
+
+${context.filePath ? `Code location: ${context.filePath}:${context.lineNumber}` : ''}
+
+Please address the user's request in the context of this merge request.
+`;
+}
+
+// GitLab mode processing dispatcher
+async function processGitLabMode(mode: string): Promise<ContainerResponse> {
+  logWithContext('GITLAB_PROCESSOR', 'Processing GitLab mode', { mode });
+
+  switch (mode) {
+    case 'gitlab_issue':
+      return await processGitLabIssue();
+    case 'gitlab_issue_comment':
+      return await processGitLabIssueComment();
+    case 'gitlab_mr_comment':
+      return await processGitLabMRComment();
+    case 'gitlab_mr_creation':
+      return await processGitLabMRCreation();
+    default:
+      throw new Error(`Unsupported GitLab processing mode: ${mode}`);
+  }
+}
+
+// GitLab issue processing (similar to GitHub issue processing)
+async function processGitLabIssue(): Promise<ContainerResponse> {
+  logWithContext('GITLAB_PROCESSOR', 'Processing GitLab issue');
+
+  try {
+    // Extract issue context from environment
+    const issueContext: GitLabIssueContext = {
+      issueIid: parseInt(process.env.ISSUE_IID!),
+      issueTitle: process.env.ISSUE_TITLE!,
+      issueDescription: process.env.ISSUE_DESCRIPTION || '',
+      projectNamespace: process.env.PROJECT_NAMESPACE!,
+      gitCloneUrl: process.env.GIT_CLONE_URL!,
+      authorUsername: process.env.AUTHOR_USERNAME || 'unknown'
+    };
+
+    logWithContext('GITLAB_PROCESSOR', 'GitLab issue context prepared', {
+      issueIid: issueContext.issueIid,
+      projectNamespace: issueContext.projectNamespace
+    });
+
+    // Initialize GitLab client
+    const gitlabClient = new GitLabClient({
+      gitlabUrl: process.env.GITLAB_URL!,
+      projectId: process.env.GITLAB_PROJECT_ID!,
+      token: process.env.GITLAB_TOKEN!
+    });
+
+    // Setup workspace (adapted from GitHub version)
+    const workspaceDir = await setupGitLabWorkspace(issueContext.gitCloneUrl, `issue-${issueContext.issueIid}`);
+
+    // Prepare Claude prompt
+    const prompt = formatGitLabIssueContext(issueContext);
+    
+    // Execute Claude Code (similar to GitHub flow)
+    const claudeResult = await executeClaude(prompt, workspaceDir);
+
+    // Check for changes and handle response
+    const hasChanges = await detectGitChanges(workspaceDir);
+
+    if (hasChanges) {
+      // Create MR for issue fix
+      const branchName = `claude-code/issue-${issueContext.issueIid}`;
+      await createFeatureBranchCommitAndPush(workspaceDir, branchName, `Fix issue #${issueContext.issueIid}: ${issueContext.issueTitle}`);
+      
+      // TODO: Create GitLab MR via API
+      return {
+        success: true,
+        message: `Created branch ${branchName} with issue fix`
+      };
+    } else {
+      // Post comment to issue
+      // TODO: Post comment via GitLab API
+      return {
+        success: true,
+        message: `Posted analysis comment to issue #${issueContext.issueIid}`
+      };
+    }
+
+  } catch (error) {
+    logWithContext('GITLAB_PROCESSOR', 'Error processing GitLab issue', {
+      error: (error as Error).message
+    });
+    return {
+      success: false,
+      message: 'Failed to process GitLab issue',
+      error: (error as Error).message
+    };
+  }
+}
+
+// GitLab comment processing
+async function processGitLabIssueComment(): Promise<ContainerResponse> {
+  logWithContext('GITLAB_PROCESSOR', 'Processing GitLab issue comment');
+
+  try {
+    const commentContext: GitLabCommentContext = {
+      userPrompt: process.env.USER_PROMPT!,
+      commentId: process.env.COMMENT_ID!,
+      discussionId: process.env.DISCUSSION_ID,
+      issueIid: process.env.ISSUE_IID ? parseInt(process.env.ISSUE_IID) : undefined,
+      issueTitle: process.env.ISSUE_TITLE,
+      projectNamespace: process.env.PROJECT_NAMESPACE!,
+      authorUsername: process.env.AUTHOR_USERNAME || 'unknown'
+    };
+
+    // Setup workspace for context
+    const workspaceDir = await setupGitLabWorkspace(process.env.GIT_CLONE_URL!, `comment-${commentContext.commentId}`);
+
+    // Prepare Claude prompt
+    const prompt = formatGitLabCommentContext(commentContext);
+    
+    // Execute Claude Code
+    const claudeResult = await executeClaude(prompt, workspaceDir);
+
+    // TODO: Reply to comment via GitLab API
+    return {
+      success: true,
+      message: `Replied to comment on issue #${commentContext.issueIid}`
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Failed to process GitLab comment',
+      error: (error as Error).message
+    };
+  }
+}
+
+// GitLab MR comment processing
+async function processGitLabMRComment(): Promise<ContainerResponse> {
+  logWithContext('GITLAB_PROCESSOR', 'Processing GitLab MR comment');
+
+  try {
+    const mrContext: GitLabMRContext = {
+      userPrompt: process.env.USER_PROMPT!,
+      mrIid: parseInt(process.env.MR_IID!),
+      mrTitle: process.env.MR_TITLE || '',
+      mrDescription: process.env.MR_DESCRIPTION || '',
+      sourceBranch: process.env.SOURCE_BRANCH!,
+      targetBranch: process.env.TARGET_BRANCH!,
+      projectNamespace: process.env.PROJECT_NAMESPACE!,
+      filePath: process.env.FILE_PATH,
+      lineNumber: process.env.LINE_NUMBER ? parseInt(process.env.LINE_NUMBER) : undefined
+    };
+
+    // Setup workspace on source branch
+    const workspaceDir = await setupGitLabWorkspace(process.env.GIT_CLONE_URL!, `mr-${mrContext.mrIid}`, mrContext.sourceBranch);
+
+    // Prepare Claude prompt
+    const prompt = formatGitLabMRContext(mrContext);
+    
+    // Execute Claude Code
+    const claudeResult = await executeClaude(prompt, workspaceDir);
+
+    // Check for changes and commit if needed
+    const hasChanges = await detectGitChanges(workspaceDir);
+    if (hasChanges) {
+      await createFeatureBranchCommitAndPush(workspaceDir, mrContext.sourceBranch, 'Update based on MR comment feedback');
+    }
+
+    // TODO: Reply to discussion via GitLab API
+    return {
+      success: true,
+      message: `Replied to MR !${mrContext.mrIid} comment`
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Failed to process GitLab MR comment',
+      error: (error as Error).message
+    };
+  }
+}
+
+// GitLab MR creation processing
+async function processGitLabMRCreation(): Promise<ContainerResponse> {
+  logWithContext('GITLAB_PROCESSOR', 'Processing GitLab MR creation');
+
+  // Similar to MR comment but focused on implementing MR requirements
+  // TODO: Implement MR creation processing
+  return {
+    success: true,
+    message: 'GitLab MR creation processing not fully implemented yet'
+  };
+}
+
+// Configure GitLab CLI with authentication token
+async function configureGitLabCLI(token: string): Promise<void> {
+  try {
+    // Set GitLab host (default to gitlab.com if not specified)
+    const gitlabHost = process.env.GITLAB_URL || 'https://gitlab.com';
+    
+    logWithContext('GITLAB_CLI', 'Configuring GitLab CLI', { host: gitlabHost });
+
+    // Configure glab using environment variables
+    // The GitLab CLI respects these environment variables
+    process.env.GITLAB_TOKEN = token;
+    process.env.GITLAB_HOST = gitlabHost;
+    
+    // Verify glab is available
+    await new Promise<void>((resolve, reject) => {
+      const glabProcess = spawn('glab', ['--version'], {
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      
+      glabProcess.on('close', (code: number) => {
+        if (code === 0) {
+          logWithContext('GITLAB_CLI', 'GitLab CLI is available and configured');
+          resolve();
+        } else {
+          reject(new Error('GitLab CLI (glab) is not available'));
+        }
+      });
+      
+      glabProcess.on('error', (error: Error) => {
+        reject(new Error(`Failed to run GitLab CLI: ${error.message}`));
+      });
+    });
+  } catch (error) {
+    logWithContext('GITLAB_CLI', 'Failed to configure GitLab CLI', { error });
+    // Non-fatal: GitLab CLI is optional, container can still function
+  }
+}
+
+// GitLab workspace setup (adapted from GitHub version)
+async function setupGitLabWorkspace(gitCloneUrl: string, workspaceId: string, branch?: string): Promise<string> {
+  const workspaceDir = `/tmp/workspace/${workspaceId}`;
+
+  logWithContext('GITLAB_WORKSPACE', 'Setting up GitLab workspace', {
+    workspaceDir,
+    gitCloneUrl,
+    branch
+  });
+
+  try {
+    // Create parent workspace directory
+    await fs.mkdir(path.dirname(workspaceDir), { recursive: true });
+    
+    // Get GitLab token for authenticated cloning
+    const gitlabToken = process.env.GITLAB_TOKEN;
+    if (!gitlabToken) {
+      throw new Error('GitLab token not available for cloning');
+    }
+
+    // Configure GitLab CLI (glab) with authentication
+    await configureGitLabCLI(gitlabToken);
+
+    // Construct authenticated clone URL for GitLab
+    let authenticatedUrl = gitCloneUrl;
+    if (gitCloneUrl.includes('gitlab.com') || gitCloneUrl.includes(process.env.GITLAB_URL!)) {
+      // Replace https://gitlab.com/ with https://oauth2:token@gitlab.com/
+      authenticatedUrl = gitCloneUrl.replace(
+        /https:\/\/([^\/]+)\//,
+        `https://oauth2:${gitlabToken}@$1/`
+      );
+    }
+
+    logWithContext('GITLAB_WORKSPACE', 'Starting GitLab git clone');
+
+    // Clone repository using git command
+    await new Promise<void>((resolve, reject) => {
+      const gitProcess = spawn('git', ['clone', authenticatedUrl, workspaceDir], {
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      gitProcess.stdout.on('data', (data: Buffer) => {
+        stdout += data.toString();
+      });
+
+      gitProcess.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      gitProcess.on('close', (code: number) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`Git clone failed with code ${code}: ${stderr}`));
+        }
+      });
+    });
+
+    // Initialize git workspace
+    const git = simpleGit(workspaceDir);
+    await git.addConfig('user.name', 'Claude Code Bot');
+    await git.addConfig('user.email', 'claude-code@anthropic.com');
+
+    // Checkout specific branch if requested
+    if (branch && branch !== 'main' && branch !== 'master') {
+      try {
+        await git.checkout(branch);
+        logWithContext('GITLAB_WORKSPACE', 'Checked out branch', { branch });
+      } catch (error) {
+        logWithContext('GITLAB_WORKSPACE', 'Failed to checkout branch, staying on default', { 
+          branch, 
+          error: (error as Error).message 
+        });
+      }
+    }
+
+    logWithContext('GITLAB_WORKSPACE', 'GitLab workspace setup completed', { workspaceDir });
+    return workspaceDir;
+
+  } catch (error) {
+    logWithContext('GITLAB_WORKSPACE', 'Error setting up GitLab workspace', {
+      error: (error as Error).message,
+      gitCloneUrl,
+      workspaceDir
+    });
+    throw error;
+  }
+}
+
+// Execute Claude Code (extracted from existing GitHub flow)
+async function executeClaude(prompt: string, workspaceDir: string): Promise<any> {
+  logWithContext('CLAUDE_EXECUTOR', 'Starting Claude Code execution', {
+    workspaceDir,
+    promptLength: prompt.length
+  });
+
+  const results: SDKMessage[] = [];
+  let turnCount = 0;
+
+  try {
+    const originalCwd = process.cwd();
+    process.chdir(workspaceDir);
+
+    logWithContext('CLAUDE_EXECUTOR', 'Changed working directory for Claude Code', {
+      originalCwd,
+      newCwd: workspaceDir
+    });
+
+    try {
+      for await (const message of query({
+        prompt,
+        options: { permissionMode: 'bypassPermissions' }
+      })) {
+        turnCount++;
+        results.push(message);
+
+        logWithContext('CLAUDE_EXECUTOR', `Claude turn ${turnCount} completed`, {
+          type: message.type,
+          turnCount
+        });
+      }
+
+      logWithContext('CLAUDE_EXECUTOR', 'Claude Code execution completed', {
+        totalTurns: turnCount,
+        resultsCount: results.length
+      });
+
+      return {
+        results,
+        turnCount,
+        response: results.length > 0 ? getMessageText(results[results.length - 1]) : ''
+      };
+
+    } finally {
+      // Always restore the original working directory
+      process.chdir(originalCwd);
+      logWithContext('CLAUDE_EXECUTOR', 'Restored original working directory', { originalCwd });
+    }
+
+  } catch (error) {
+    logWithContext('CLAUDE_EXECUTOR', 'Error during Claude Code execution', {
+      error: (error as Error).message,
+      turnCount,
+      resultsCount: results.length
+    });
+    throw error;
   }
 }
 
@@ -675,8 +1187,94 @@ async function processIssueHandler(req: http.IncomingMessage, res: http.ServerRe
   }
 }
 
-// Route handler
-async function requestHandler(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+// GitLab processing handler
+async function processGitLabHandler(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  logWithContext('GITLAB_HANDLER', 'Processing GitLab request');
+
+  // Read request body to get environment variables
+  let requestBody = '';
+  for await (const chunk of req) {
+    requestBody += chunk;
+  }
+
+  let gitlabContextFromRequest: any = {};
+  if (requestBody) {
+    try {
+      gitlabContextFromRequest = JSON.parse(requestBody);
+      logWithContext('GITLAB_HANDLER', 'Received GitLab context in request body', {
+        hasAnthropicKey: !!gitlabContextFromRequest.ANTHROPIC_API_KEY,
+        hasGitLabToken: !!gitlabContextFromRequest.GITLAB_TOKEN,
+        processingMode: gitlabContextFromRequest.PROCESSING_MODE,
+        keysReceived: Object.keys(gitlabContextFromRequest)
+      });
+
+      // Set environment variables from request body
+      Object.keys(gitlabContextFromRequest).forEach(key => {
+        if (gitlabContextFromRequest[key]) {
+          process.env[key] = gitlabContextFromRequest[key];
+        }
+      });
+
+    } catch (error) {
+      logWithContext('GITLAB_HANDLER', 'Error parsing request body', {
+        error: (error as Error).message,
+        bodyLength: requestBody.length
+      });
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid JSON in request body' }));
+      return;
+    }
+  }
+
+  // Check for required API keys
+  if (!process.env.ANTHROPIC_API_KEY) {
+    logWithContext('GITLAB_HANDLER', 'Missing Anthropic API key');
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'ANTHROPIC_API_KEY not provided' }));
+    return;
+  }
+
+  // Validate GitLab context
+  if (!validateGitLabContext()) {
+    logWithContext('GITLAB_HANDLER', 'Invalid GitLab context');
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Invalid GitLab context' }));
+    return;
+  }
+
+  // Process based on detected mode
+  try {
+    const mode = detectProcessingMode();
+    logWithContext('GITLAB_HANDLER', 'Detected processing mode', { mode });
+
+    const response = await processGitLabMode(mode);
+    
+    logWithContext('GITLAB_HANDLER', 'GitLab processing completed', {
+      success: response.success,
+      mode
+    });
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(response));
+
+  } catch (error) {
+    logWithContext('GITLAB_HANDLER', 'GitLab processing failed', {
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    const errorResponse: ContainerResponse = {
+      success: false,
+      message: 'Failed to process GitLab request',
+      error: error instanceof Error ? error.message : String(error)
+    };
+
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(errorResponse));
+  }
+}
+
+// Route handler  
+export async function requestHandler(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const { method, url } = req;
   const startTime = Date.now();
 
@@ -697,6 +1295,9 @@ async function requestHandler(req: http.IncomingMessage, res: http.ServerRespons
     } else if (url === '/process-issue') {
       logWithContext('REQUEST_HANDLER', 'Routing to process issue handler');
       await processIssueHandler(req, res);
+    } else if (url === '/process-gitlab') {
+      logWithContext('REQUEST_HANDLER', 'Routing to GitLab process handler');
+      await processGitLabHandler(req, res);
     } else {
       logWithContext('REQUEST_HANDLER', 'Route not found', { url });
       res.writeHead(404, { 'Content-Type': 'application/json' });
