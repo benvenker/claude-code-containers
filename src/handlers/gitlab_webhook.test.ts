@@ -135,12 +135,40 @@ describe('GitLab Webhook Handler', () => {
 
   describe('Event Routing', () => {
     const createMockEnv = () => ({
-      GITLAB_APP_CONFIG: {
-        idFromName: vi.fn().mockReturnValue('test-id'),
+      MY_CONTAINER: {
+        idFromName: vi.fn().mockReturnValue('mock-container-id'),
         get: vi.fn().mockReturnValue({
           fetch: vi.fn().mockResolvedValue(
-            new Response(JSON.stringify({ webhookSecret: 'test-token' }))
+            new Response(JSON.stringify({ success: true, message: 'Issue processed' }), { status: 200 })
           )
+        })
+      },
+      GITLAB_APP_CONFIG: {
+        idFromName: vi.fn((name) => `test-id-${name}`),
+        get: vi.fn((id) => {
+          if (id === 'test-id-123') {
+            // Configuration lookup
+            return {
+              fetch: vi.fn().mockResolvedValue(
+                new Response(JSON.stringify({ 
+                  webhookSecret: 'test-token',
+                  token: 'test-gitlab-token',
+                  url: 'https://gitlab.com',
+                  projectId: '123'
+                }))
+              )
+            };
+          } else if (id === 'test-id-claude-config') {
+            // Claude API key lookup
+            return {
+              fetch: vi.fn().mockResolvedValue(
+                new Response(JSON.stringify({ anthropicApiKey: 'test-claude-key' }))
+              )
+            };
+          }
+          return {
+            fetch: vi.fn().mockResolvedValue(new Response('Not found', { status: 404 }))
+          };
         })
       }
     });
@@ -155,8 +183,20 @@ describe('GitLab Webhook Handler', () => {
         },
         body: JSON.stringify({ 
           object_kind: 'issue',
-          object_attributes: { action: 'open' },
-          project: { id: 123 }
+          object_attributes: { 
+            action: 'open',
+            id: 123,
+            iid: 1,
+            title: 'Test Issue',
+            description: 'Test description'
+          },
+          user: { id: 456, username: 'testuser', name: 'Test User' },
+          project: { 
+            id: 123,
+            name: 'test-project',
+            path_with_namespace: 'group/test-project',
+            git_http_url: 'https://gitlab.com/group/test-project.git'
+          }
         })
       });
 
