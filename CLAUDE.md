@@ -80,10 +80,12 @@ This is a **Cloudflare Workers Container project** that integrates **Claude Code
 - Container enhancement with Claude Code SDK and GitHub API integration
 - Issue detection and routing to Claude Code containers
 
-**🔧 GitLab Integration (In Progress):**
-- Technical specifications completed
-- Authentication strategy defined
-- Ready for implementation (Phase 2)
+**✅ GitLab Integration (Phase 2 Complete):**
+- GitLab webhook handlers with Personal Access Token authentication
+- GitLab API client with connection pooling and retry logic
+- Container integration with GitLab context processing
+- Support for @duo-agent mentions in comments and MR descriptions
+- Comprehensive test coverage (46 tests passing)
 
 ## Detailed Documentation
 
@@ -95,9 +97,18 @@ For comprehensive technical details, refer to the following documentation:
 - **@docs/authentication-strategy.md** - GitLab authentication approach and security
 - **@docs/container-communication-protocol.md** - Container communication design and protocols
 
+### Implementation Features
+- **@docs/features/gitlab-worker-foundation.md** - Worker layer foundation with webhook handling
+- **@docs/features/gitlab-api-client.md** - GitLab API client with connection pooling and retry logic
+- **@docs/features/container-integration.md** - Container GitLab integration and processing modes
+
+### Component Documentation
+- **@src/handlers/CLAUDE.md** - Request handlers for GitHub and GitLab webhook processing
+- **@src/CLAUDE.md** - Worker layer architecture and implementation details
+- **@container_src/CLAUDE.md** - Container GitLab integration and processing modes
+
 ### Project Management
 - **@Plan.md** - Complete implementation plan with phases and tasks
-- **@container_src/CLAUDE.md** - Container-specific documentation and GitLab adaptation requirements
 
 ### Reference Implementation
 - **GitLab Claude Reference**: `/Users/ben/code/gitlab-claude` - Working GitLab integration with webhooks, MRs, and Claude Code

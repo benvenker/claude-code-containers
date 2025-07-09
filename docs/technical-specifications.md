@@ -14,9 +14,9 @@ GitLab → Webhook → CloudFlare Worker → Container → Claude Code → GitLa
 - **Worker**: `@cloudflare/containers: 0.0.8`, `@tsndr/cloudflare-worker-jwt: ^3.2.0`
 - **Container**: `@anthropic-ai/claude-code: ^1.0.27`, `@octokit/rest: ^22.0.0`
 
-### Required New Dependencies
-- **Container**: `@gitbeaker/rest` (GitLab API client to replace @octokit/rest)
-- **Worker**: No new dependencies needed
+### GitLab Integration Dependencies (Installed)
+- **Container**: `@gitbeaker/rest: ^40.2.0` (GitLab API client), `axios: ^1.6.0` (HTTP client with connection pooling)
+- **Worker**: No new dependencies needed (uses existing Durable Objects and encryption)
 
 ## Trigger Types Specification
 

@@ -41,26 +41,38 @@ This directory contains the Cloudflare Worker source code that handles the main 
 - AES-256-GCM encryption for stored credentials
 - Secure token generation and caching
 
-## GitLab Adaptation Requirements
+## GitLab Integration Implementation (Phase 2.1 Complete)
 
-To adapt this for GitLab with "@duo-agent" comment triggers:
+### ✅ Completed GitLab Features:
 
-### Changes Needed:
+1. **GitLab Webhook Handling** - Complete webhook processing with token verification
+2. **GitLab Setup Interface** - Web-based Personal Access Token configuration
+3. **GitLab Authentication** - Secure credential storage in GitLabAppConfigDO
+4. **Event Routing** - Support for issue, note, and merge_request events
+5. **@duo-agent Detection** - Parse mentions from comments and MR descriptions
 
-1. **GitLab API Integration** - Replace GitHub API calls with GitLab API
-2. **Comment Parsing** - Detect "@duo-agent" mentions in MR/issue comments
-3. **Webhook Structure** - Adapt to GitLab webhook format and events
-4. **Authentication** - Use GitLab access tokens instead of GitHub app tokens
-5. **Repository Handling** - Adapt git clone URLs for GitLab
+### ✅ Implemented Files:
 
-### Key Files to Modify:
-- `github_webhook.ts` → `gitlab_webhook.ts` 
-- `github_webhooks/issue.ts` → `gitlab_webhooks/comment.ts`
-- `github_client.ts` → `gitlab_client.ts`
-- Update container logic to handle GitLab APIs
+**New GitLab Handlers:**
+- `gitlab_webhook.ts` - Main webhook processor with token verification
+- `gitlab_setup.ts` - Web interface for token configuration and validation
+- GitLabAppConfigDO class in `index.ts` - Encrypted credential storage
 
-### GitLab-Specific Features:
-- Parse "@duo-agent [prompt]" syntax from comments
-- Handle GitLab MR comment events
-- Create GitLab MR comments with Claude's response
-- Support GitLab project access tokens
+**Event Processing:**
+- Issue events: Auto-process new GitLab issues (GitHub parity)
+- Note events: Handle @duo-agent mentions in issue/MR comments
+- Merge request events: Process @duo-agent instructions from MR descriptions
+- Bot detection and system note filtering
+
+**Security Features:**
+- GitLab webhook token verification (X-Gitlab-Token header)
+- Encrypted credential storage using AES-256-GCM
+- Token validation via GitLab API calls
+- Project access verification
+
+### GitLab-Specific Features Implemented:
+- Parse "@duo-agent [prompt]" syntax with code block filtering
+- Handle GitLab webhook event routing (object_kind based)
+- Support GitLab Personal Access Tokens with project/group scope
+- GitLab project namespace and clone URL handling
+- Discussion-threaded comment responses
