@@ -1,13 +1,14 @@
 import * as http from 'http';
 import { promises as fs } from 'fs';
 import { query, type SDKMessage } from '@anthropic-ai/claude-code';
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { ContainerGitHubClient } from './github_client.js';
 import { GitLabClient } from './gitlab_client.js';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
+const startTime = Date.now();
 
 // Log container startup
 console.log('[CONTAINER_STARTUP] Container starting...', {
@@ -16,6 +17,48 @@ console.log('[CONTAINER_STARTUP] Container starting...', {
   platform: process.platform,
   arch: process.arch,
   timestamp: new Date().toISOString()
+});
+
+// CRITICAL FIX: Create and bind server IMMEDIATELY to pass Cloudflare's readiness checks
+// This must happen within the first ~100ms or Cloudflare will cancel the request
+let requestHandler: ((req: http.IncomingMessage, res: http.ServerResponse) => Promise<void>) | null = null;
+
+// Create server with temporary handler
+const server = http.createServer((req, res) => {
+  if (requestHandler) {
+    return requestHandler(req, res);
+  }
+  
+  // If main handler not ready yet, return 503
+  console.log('[CONTAINER_STARTUP] Request received before initialization complete');
+  res.writeHead(503, { 
+    'Content-Type': 'application/json',
+    'Retry-After': '1'
+  });
+  res.end(JSON.stringify({ 
+    status: 'initializing',
+    message: 'Container is starting up, please retry'
+  }));
+});
+
+// Start listening IMMEDIATELY - this is the critical fix
+server.listen(PORT, () => {
+  const bindTime = Date.now() - startTime;
+  console.log('[CONTAINER_STARTUP] Server listening on port', {
+    port: PORT,
+    bindTimeMs: bindTime,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Handle server startup errors
+server.on('error', (error) => {
+  console.error('[CONTAINER_STARTUP] Server startup error', {
+    error: error.message,
+    code: (error as any).code,
+    port: PORT
+  });
+  process.exit(1);
 });
 
 // Simplified container response interface
@@ -743,7 +786,7 @@ async function detectGitChanges(workspaceDir: string): Promise<boolean> {
     logWithContext('GIT_WORKSPACE', 'Git change detection result', {
       hasChanges,
       isClean: status.isClean(),
-      files: status.files.map(f => ({ file: f.path, status: f.working_dir })),
+      files: status.files.map((f: any) => ({ file: f.path, status: f.working_dir })),
       ahead: status.ahead,
       behind: status.behind
     });
@@ -1308,7 +1351,7 @@ async function processGitLabHandler(req: http.IncomingMessage, res: http.ServerR
 }
 
 // Route handler  
-export async function requestHandler(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+export async function requestHandlerImpl(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const { method, url } = req;
   const startTime = Date.now();
 
@@ -1373,43 +1416,30 @@ export async function requestHandler(req: http.IncomingMessage, res: http.Server
   }
 }
 
-// Start server
-logWithContext('SERVER', 'Creating HTTP server...');
-const server = http.createServer(requestHandler);
+// Note: The requestHandler function is assigned after it's defined below
+// This assignment happens at the end of the file
 
-server.on('error', (error) => {
-  logWithContext('SERVER', 'Server error', {
-    error: error.message,
-    stack: error.stack
-  });
+// Log final initialization status
+const initTime = Date.now() - startTime;
+logWithContext('SERVER', 'Container fully initialized', {
+  initializationTimeMs: initTime,
+  port: PORT,
+  pid: process.pid,
+  nodeVersion: process.version,
+  platform: process.platform,
+  arch: process.arch
 });
 
-server.listen(PORT, () => {
-  const address = server.address();
-  const host = typeof address === 'string' ? address : address?.address || 'unknown';
-  const port = typeof address === 'string' ? PORT : address?.port || PORT;
-  
-  logWithContext('SERVER', 'Claude Code container server started', {
-    port: port,
-    host: host,
-    address: address,
-    pid: process.pid,
-    nodeVersion: process.version,
-    platform: process.platform,
-    arch: process.arch
-  });
-
-  logWithContext('SERVER', 'Configuration check', {
-    claudeCodeAvailable: !!process.env.ANTHROPIC_API_KEY,
-    githubTokenAvailable: !!process.env.GITHUB_TOKEN,
-    issueContext: !!process.env.ISSUE_ID,
-    environment: {
-      instanceId: INSTANCE_ID,
-      message: MESSAGE,
-      issueId: process.env.ISSUE_ID,
-      repositoryName: process.env.REPOSITORY_NAME
-    }
-  });
+logWithContext('SERVER', 'Configuration check', {
+  claudeCodeAvailable: !!process.env.ANTHROPIC_API_KEY,
+  githubTokenAvailable: !!process.env.GITHUB_TOKEN,
+  issueContext: !!process.env.ISSUE_ID,
+  environment: {
+    instanceId: INSTANCE_ID,
+    message: MESSAGE,
+    issueId: process.env.ISSUE_ID,
+    repositoryName: process.env.REPOSITORY_NAME
+  }
 });
 
 // Error handling for server
@@ -1496,3 +1526,11 @@ function getMessageText(message: SDKMessage): string {
   // Last resort: return a generic message instead of JSON
   return JSON.stringify(message);
 }
+
+// CRITICAL: Assign the actual request handler function now that it's defined
+// This completes the initialization and allows the server to handle real requests
+requestHandler = requestHandlerImpl;
+console.log('[CONTAINER_STARTUP] Request handler assigned, container ready for requests');
+
+// Export the handler for compatibility
+export { requestHandlerImpl as requestHandler };
