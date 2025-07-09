@@ -392,15 +392,13 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
           
           let html = '';
           configuredProjects.forEach((project, index) => {
-            html += `
-              <div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-bottom: 10px;">
-                <strong>${project.projectName}</strong> (ID: ${project.projectId})
-                <br><small>📁 ${project.projectNamespace}</small>
-                <br><small>🔑 Token: ${project.token.substring(0, 8)}...</small>
-                <br><small>🔐 Secret: ${project.webhookSecret.substring(0, 8)}...</small>
-                <button type="button" onclick="removeProject(${index})" style="background: #dc3545; color: white; border: none; padding: 2px 8px; border-radius: 3px; font-size: 12px; margin-top: 5px;">Remove</button>
-              </div>
-            `;
+            html += '<div style="background: white; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-bottom: 10px;">' +
+              '<strong>' + project.projectName + '</strong> (ID: ' + project.projectId + ')' +
+              '<br><small>📁 ' + project.projectNamespace + '</small>' +
+              '<br><small>🔑 Token: ' + project.token.substring(0, 8) + '...</small>' +
+              '<br><small>🔐 Secret: ' + project.webhookSecret.substring(0, 8) + '...</small>' +
+              '<button type="button" onclick="removeProject(' + index + ')" style="background: #dc3545; color: white; border: none; padding: 2px 8px; border-radius: 3px; font-size: 12px; margin-top: 5px;">Remove</button>' +
+              '</div>';
           });
           projectsList.innerHTML = html;
         }
@@ -460,19 +458,19 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
                     successCount++;
                   } else {
                     const error = await response.json();
-                    errors.push(`${project.projectName}: ${error.error}`);
+                    errors.push(project.projectName + ': ' + error.error);
                   }
                 } catch (error) {
-                  errors.push(`${project.projectName}: ${error.message}`);
+                  errors.push(project.projectName + ': ' + error.message);
                 }
               }
               
               let resultHtml = '';
               if (successCount > 0) {
-                resultHtml += `<div class="success">✅ Successfully configured ${successCount} project(s)</div>`;
+                resultHtml += '<div class="success">✅ Successfully configured ' + successCount + ' project(s)</div>';
               }
               if (errors.length > 0) {
-                resultHtml += `<div class="error">❌ Errors:<br>${errors.join('<br>')}</div>`;
+                resultHtml += '<div class="error">❌ Errors:<br>' + errors.join('<br>') + '</div>';
               }
               
               document.getElementById('result').innerHTML = resultHtml;
