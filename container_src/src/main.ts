@@ -4,7 +4,8 @@ import { query, type SDKMessage } from '@anthropic-ai/claude-code';
 import simpleGit from 'simple-git';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { ContainerGitHubClient } from './github_client.js';
+import { ContainerGitHubClient } from './github_client';
+import { GitLabClient } from './gitlab_client';
 
 const PORT = 8080;
 
@@ -31,6 +32,40 @@ interface IssueContext {
   author: string;
 }
 
+// GitLab context interfaces
+interface GitLabIssueContext {
+  issueIid: number;
+  issueTitle: string;
+  issueDescription: string;
+  projectNamespace: string;
+  gitCloneUrl: string;
+  authorUsername: string;
+}
+
+interface GitLabCommentContext {
+  userPrompt: string;
+  commentId: string;
+  discussionId?: string;
+  issueIid?: number;
+  issueTitle?: string;
+  mrIid?: number;
+  mrTitle?: string;
+  projectNamespace: string;
+  authorUsername: string;
+}
+
+interface GitLabMRContext {
+  userPrompt: string;
+  mrIid: number;
+  mrTitle: string;
+  mrDescription: string;
+  sourceBranch: string;
+  targetBranch: string;
+  projectNamespace: string;
+  filePath?: string;
+  lineNumber?: number;
+}
+
 interface HealthStatus {
   status: string;
   message: string;
@@ -52,6 +87,107 @@ function logWithContext(context: string, message: string, data?: any): void {
   } else {
     console.log(logMessage);
   }
+}
+
+// GitLab processing mode detection
+export function detectProcessingMode(): string {
+  // Check for GitLab environment variables
+  if (process.env.GITLAB_URL && process.env.PROCESSING_MODE) {
+    const mode = process.env.PROCESSING_MODE;
+    switch (mode) {
+      case 'issue':
+        return 'gitlab_issue';
+      case 'issue_comment':
+        return 'gitlab_issue_comment';
+      case 'mr_comment':
+        return 'gitlab_mr_comment';
+      case 'mr_creation':
+        return 'gitlab_mr_creation';
+    }
+  }
+  
+  // Fallback to GitHub mode
+  return 'github_issue';
+}
+
+// GitLab context validation
+export function validateGitLabContext(): boolean {
+  const mode = process.env.PROCESSING_MODE;
+  
+  // Basic required variables for all GitLab modes
+  if (!process.env.GITLAB_URL || !process.env.GITLAB_TOKEN || !process.env.GITLAB_PROJECT_ID) {
+    return false;
+  }
+  
+  // Mode-specific validation
+  switch (mode) {
+    case 'issue':
+      return !!(process.env.ISSUE_IID && process.env.ISSUE_TITLE && process.env.PROJECT_NAMESPACE);
+    case 'issue_comment':
+    case 'mr_comment':
+      return !!(process.env.USER_PROMPT && process.env.COMMENT_ID);
+    case 'mr_creation':
+      return !!(process.env.MR_IID && process.env.USER_PROMPT);
+    default:
+      return false;
+  }
+}
+
+// GitLab context formatters
+export function formatGitLabIssueContext(context: GitLabIssueContext): string {
+  return `
+You are working on GitLab issue #${context.issueIid}: "${context.issueTitle}"
+
+Project: ${context.projectNamespace}
+
+Issue Description:
+${context.issueDescription}
+
+Author: ${context.authorUsername}
+
+The repository has been cloned to your current working directory. Please:
+1. Explore the codebase to understand the structure and relevant files
+2. Analyze the issue requirements thoroughly
+3. Implement a solution that addresses the issue
+4. Write appropriate tests if needed
+5. Ensure code quality and consistency with existing patterns
+
+Work step by step and provide clear explanations of your approach.
+`;
+}
+
+export function formatGitLabCommentContext(context: GitLabCommentContext): string {
+  return `
+You are responding to a @duo-agent mention in a GitLab comment.
+
+User's request: ${context.userPrompt}
+
+${context.issueIid ? `Context: GitLab issue #${context.issueIid} - ${context.issueTitle}` : ''}
+${context.mrIid ? `Context: GitLab merge request !${context.mrIid} - ${context.mrTitle}` : ''}
+
+Project: ${context.projectNamespace}
+Author: ${context.authorUsername}
+
+Please address the user's request directly and provide helpful assistance.
+`;
+}
+
+export function formatGitLabMRContext(context: GitLabMRContext): string {
+  return `
+You are working on GitLab merge request !${context.mrIid}: "${context.mrTitle}"
+
+MR Description:
+${context.mrDescription}
+
+User's request: ${context.userPrompt}
+
+Branches: ${context.sourceBranch} → ${context.targetBranch}
+Project: ${context.projectNamespace}
+
+${context.filePath ? `Code location: ${context.filePath}:${context.lineNumber}` : ''}
+
+Please address the user's request in the context of this merge request.
+`;
 }
 
 // Basic health check handler
@@ -675,8 +811,62 @@ async function processIssueHandler(req: http.IncomingMessage, res: http.ServerRe
   }
 }
 
-// Route handler
-async function requestHandler(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+// GitLab processing handler
+async function processGitLabHandler(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  logWithContext('GITLAB_HANDLER', 'Processing GitLab request');
+
+  // Read request body to get environment variables
+  let requestBody = '';
+  for await (const chunk of req) {
+    requestBody += chunk;
+  }
+
+  let gitlabContextFromRequest: any = {};
+  if (requestBody) {
+    try {
+      gitlabContextFromRequest = JSON.parse(requestBody);
+      logWithContext('GITLAB_HANDLER', 'Received GitLab context in request body', {
+        hasAnthropicKey: !!gitlabContextFromRequest.ANTHROPIC_API_KEY,
+        hasGitLabToken: !!gitlabContextFromRequest.GITLAB_TOKEN,
+        processingMode: gitlabContextFromRequest.PROCESSING_MODE,
+        keysReceived: Object.keys(gitlabContextFromRequest)
+      });
+
+      // Set environment variables from request body
+      Object.keys(gitlabContextFromRequest).forEach(key => {
+        if (gitlabContextFromRequest[key]) {
+          process.env[key] = gitlabContextFromRequest[key];
+        }
+      });
+
+    } catch (error) {
+      logWithContext('GITLAB_HANDLER', 'Error parsing request body', {
+        error: (error as Error).message,
+        bodyLength: requestBody.length
+      });
+    }
+  }
+
+  // Validate GitLab context
+  if (!validateGitLabContext()) {
+    logWithContext('GITLAB_HANDLER', 'Invalid GitLab context');
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Invalid GitLab context' }));
+    return;
+  }
+
+  // For now, return success response - actual processing will be implemented in refactor phase
+  const response: ContainerResponse = {
+    success: true,
+    message: 'GitLab processing not fully implemented yet'
+  };
+
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(response));
+}
+
+// Route handler  
+export async function requestHandler(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
   const { method, url } = req;
   const startTime = Date.now();
 
@@ -697,6 +887,9 @@ async function requestHandler(req: http.IncomingMessage, res: http.ServerRespons
     } else if (url === '/process-issue') {
       logWithContext('REQUEST_HANDLER', 'Routing to process issue handler');
       await processIssueHandler(req, res);
+    } else if (url === '/process-gitlab') {
+      logWithContext('REQUEST_HANDLER', 'Routing to GitLab process handler');
+      await processGitLabHandler(req, res);
     } else {
       logWithContext('REQUEST_HANDLER', 'Route not found', { url });
       res.writeHead(404, { 'Content-Type': 'application/json' });
