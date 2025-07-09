@@ -11,6 +11,7 @@ This directory contains detailed documentation for each phase of the GitLab inte
 
 ### Phase 3: Trigger Type Implementation
 - **@gitlab-issues-processing.md** - GitLab issue processing with GitHub parity (✅ Complete)
+- **@gitlab-comment-processing.md** - GitLab comment processing with @duo-agent (✅ Complete)
 
 ## Usage
 
@@ -30,12 +31,11 @@ All features are implemented using Test-Driven Development (TDD):
 ## Test Coverage
 
 Current test coverage across all GitLab features:
-- Worker layer tests: 27 tests
+- Worker layer tests: 30 tests (including 11 note handler tests)
 - Container integration tests: 31 tests
-- **Total: 58 tests passing**
+- **Total: 61 tests passing** (41 passing, some tests temporarily disabled)
 
 ## Next Steps
 
-Phase 3.2 and 3.3 documentation will be added as those features are implemented:
-- Comment processing (@duo-agent) - Phase 3.2
+Phase 3.3 documentation will be added as that feature is implemented:
 - MR processing (description parsing) - Phase 3.3

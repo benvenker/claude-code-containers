@@ -6,15 +6,15 @@ Implementation of Phase 3.2 - GitLab Comment Processing with @duo-agent mention 
 ## Requirements from Plan.md
 
 ### 3.2 Comment Processing (@duo-agent)
-- [ ] Comment detection system
-  - [ ] Create `src/handlers/gitlab_webhooks/note.ts`
-  - [ ] Implement @duo-agent mention parsing
-  - [ ] Filter issue vs MR comments
-  - [ ] Bot comment prevention logic
-- [ ] Comment processing logic
-  - [ ] Parse user prompts from @duo-agent mentions
-  - [ ] Execute Claude Code with user-specified prompts
-  - [ ] Handle threaded comment responses
+- [x] Comment detection system
+  - [x] Create `src/handlers/gitlab_webhooks/note.ts`
+  - [x] Implement @duo-agent mention parsing
+  - [x] Filter issue vs MR comments
+  - [x] Bot comment prevention logic
+- [x] Comment processing logic
+  - [x] Parse user prompts from @duo-agent mentions
+  - [x] Execute Claude Code with user-specified prompts
+  - [x] Handle threaded comment responses
 
 ## Understanding GitLab Note Events
 

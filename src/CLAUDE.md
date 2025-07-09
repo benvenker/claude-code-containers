@@ -41,7 +41,7 @@ This directory contains the Cloudflare Worker source code that handles the main 
 - AES-256-GCM encryption for stored credentials
 - Secure token generation and caching
 
-## GitLab Integration Implementation (Phase 2.1 Complete, Phase 3.1 Complete)
+## GitLab Integration Implementation (Phase 2.1 Complete, Phase 3.1 Complete, Phase 3.2 Complete)
 
 ### ✅ Completed GitLab Features:
 
@@ -51,6 +51,7 @@ This directory contains the Cloudflare Worker source code that handles the main 
 4. **Event Routing** - Support for issue, note, and merge_request events
 5. **@duo-agent Detection** - Parse mentions from comments and MR descriptions
 6. **GitLab Issue Processing** - Auto-process new GitLab issues (GitHub parity) ✅
+7. **GitLab Comment Processing** - @duo-agent mention detection and response handling (Phase 3.2) ✅
 
 ### ✅ Implemented Files:
 
@@ -58,6 +59,7 @@ This directory contains the Cloudflare Worker source code that handles the main 
 - `gitlab_webhook.ts` - Main webhook processor with token verification
 - `gitlab_setup.ts` - Web interface for token configuration and validation
 - `gitlab_webhooks/issue.ts` - GitLab issue event handler (Phase 3.1) ✅
+- `gitlab_webhooks/note.ts` - GitLab comment processing handler (Phase 3.2) ✅
 - GitLabAppConfigDO class in `index.ts` - Encrypted credential storage
 
 **Event Processing:**
