@@ -52,18 +52,6 @@
 				"GitLabAppConfigDO"
 			],
 			"tag": "v3"
-		},
-		{
-			"new_sqlite_classes": [
-				"GitLabAppConfigDO"
-			],
-			"tag": "v4"
-		},
-		{
-			"new_sqlite_classes": [
-				"GitLabAppConfigDO"
-			],
-			"tag": "v5"
 		}
 	]
 }
