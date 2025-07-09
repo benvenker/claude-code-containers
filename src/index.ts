@@ -6,6 +6,8 @@ import { handleClaudeSetup } from './handlers/claude_setup';
 import { handleGitHubSetup } from './handlers/github_setup';
 import { handleGitHubStatus } from './handlers/github_status';
 import { handleGitHubWebhook } from './handlers/github_webhook';
+import { handleGitLabSetup } from './handlers/gitlab_setup';
+import { handleGitLabWebhook } from './handlers/gitlab_webhook';
 import { logWithContext } from './log';
 
 export class GitHubAppConfigDO {
@@ -556,6 +558,90 @@ export class GitHubAppConfigDO {
   }
 }
 
+export class GitLabAppConfigDO {
+  private storage: DurableObjectStorage;
+
+  constructor(state: DurableObjectState) {
+    this.storage = state.storage;
+    this.initializeTables();
+    logWithContext('DURABLE_OBJECT', 'GitLabAppConfigDO initialized with SQLite');
+  }
+
+  private initializeTables(): void {
+    logWithContext('DURABLE_OBJECT', 'Initializing GitLab SQLite tables');
+
+    // Create gitlab_app_config table
+    this.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS gitlab_app_config (
+        id INTEGER PRIMARY KEY,
+        gitlab_url TEXT NOT NULL,
+        project_id TEXT NOT NULL,
+        token TEXT NOT NULL,
+        webhook_secret TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
+
+    logWithContext('DURABLE_OBJECT', 'GitLab SQLite tables initialized successfully');
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    logWithContext('DURABLE_OBJECT', 'Processing GitLab config request', {
+      method: request.method,
+      pathname: url.pathname
+    });
+
+    if (url.pathname === '/store' && request.method === 'POST') {
+      const config = await request.json();
+      await this.storeConfig(config);
+      return new Response('OK');
+    }
+
+    if (url.pathname === '/get-credentials' && request.method === 'GET') {
+      const credentials = await this.getCredentials();
+      return new Response(JSON.stringify(credentials));
+    }
+
+    return new Response('Not Found', { status: 404 });
+  }
+
+  async storeConfig(config: any): Promise<void> {
+    const now = new Date().toISOString();
+    
+    this.storage.sql.exec(
+      `INSERT OR REPLACE INTO gitlab_app_config (
+        id, gitlab_url, project_id, token, webhook_secret, created_at, updated_at
+      ) VALUES (1, ?, ?, ?, ?, ?, ?)`,
+      config.gitlabUrl,
+      config.projectId,
+      config.token,
+      config.webhookSecret,
+      now,
+      now
+    );
+  }
+
+  async getCredentials(): Promise<any> {
+    const cursor = this.storage.sql.exec('SELECT * FROM gitlab_app_config WHERE id = 1 LIMIT 1');
+    const results = cursor.toArray();
+
+    if (results.length === 0) {
+      return null;
+    }
+
+    const row = results[0];
+    return {
+      gitlabUrl: row.gitlab_url,
+      projectId: row.project_id,
+      token: row.token,
+      webhookSecret: row.webhook_secret
+    };
+  }
+}
+
 export class MyContainer extends Container {
   defaultPort = 8080;
   requiredPorts = [8080];
@@ -717,6 +803,20 @@ export default {
         response = await handleGitHubWebhook(request, env);
       }
 
+      // GitLab setup routes
+      else if (pathname.startsWith('/gitlab-setup')) {
+        logWithContext('MAIN_HANDLER', 'Routing to GitLab setup');
+        routeMatched = true;
+        response = await handleGitLabSetup(request, url.origin, env);
+      }
+
+      // GitLab webhook endpoint
+      else if (pathname === '/webhooks/gitlab') {
+        logWithContext('MAIN_HANDLER', 'Routing to GitLab webhook handler');
+        routeMatched = true;
+        response = await handleGitLabWebhook(request, env);
+      }
+
       // Container routes
       else if (pathname.startsWith('/container')) {
         logWithContext('MAIN_HANDLER', 'Routing to basic container');
@@ -770,6 +870,7 @@ export default {
 Setup Instructions:
 1. Configure Claude Code: /claude-setup
 2. Setup GitHub Integration: /gh-setup
+3. Setup GitLab Integration: /gitlab-setup
 
 Container Testing Routes:
 - /container - Basic container health check
@@ -777,7 +878,7 @@ Container Testing Routes:
 - /error - Test error handling
 - /singleton - Single container instance
 
-Once both setups are complete, create GitHub issues to trigger automatic Claude Code processing!
+Once setup is complete, create GitHub issues or GitLab @duo-agent comments to trigger automatic Claude Code processing!
         `);
       }
 
