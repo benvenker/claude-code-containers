@@ -4,10 +4,10 @@ import { query, type SDKMessage } from '@anthropic-ai/claude-code';
 import simpleGit from 'simple-git';
 import * as path from 'path';
 import { spawn } from 'child_process';
-import { ContainerGitHubClient } from './github_client';
-import { GitLabClient } from './gitlab_client';
+import { ContainerGitHubClient } from './github_client.js';
+import { GitLabClient } from './gitlab_client.js';
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
 
 // Simplified container response interface
 interface ContainerResponse {
