@@ -1,6 +1,7 @@
 import { logWithContext } from "../log";
 import { handleGitLabIssuesEvent } from "./gitlab_webhooks/issue";
 import { handleGitLabNoteEvent } from "./gitlab_webhooks/note";
+import { handleGitLabMergeRequestEvent } from "./gitlab_webhooks/merge_request";
 
 // Route GitLab webhook events to specific handlers
 async function routeGitLabEvent(data: any, configDO: any, env: any): Promise<Response> {
@@ -21,7 +22,7 @@ async function routeGitLabEvent(data: any, configDO: any, env: any): Promise<Res
 
     case 'merge_request':
       logWithContext('GITLAB_EVENT_ROUTER', 'Routing to merge request handler');
-      return new Response('Processed merge_request event', { status: 200 });
+      return await handleGitLabMergeRequestEvent(data, env, configDO);
 
     default:
       logWithContext('GITLAB_EVENT_ROUTER', 'Unhandled GitLab event', {

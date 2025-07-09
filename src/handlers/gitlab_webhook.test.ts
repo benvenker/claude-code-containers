@@ -246,7 +246,7 @@ describe('GitLab Webhook Handler', () => {
       
       expect(response.status).toBe(200);
       const responseText = await response.text();
-      expect(responseText).toContain('note');
+      expect(responseText).toContain('mention'); // Should be "No @duo-agent mention found"
     });
 
     it('should route merge request events to MR handler', async () => {
@@ -259,8 +259,20 @@ describe('GitLab Webhook Handler', () => {
         },
         body: JSON.stringify({ 
           object_kind: 'merge_request',
-          object_attributes: { action: 'open' },
-          project: { id: 123 }
+          object_attributes: { 
+            action: 'open',
+            id: 123,
+            iid: 5,
+            title: 'Test MR',
+            description: 'Test MR description'
+          },
+          user: { id: 456, username: 'developer', name: 'Developer Name', bot: false },
+          project: { 
+            id: 123,
+            name: 'test-project',
+            path_with_namespace: 'group/test-project',
+            git_http_url: 'https://gitlab.com/group/test-project.git'
+          }
         })
       });
 
@@ -268,7 +280,7 @@ describe('GitLab Webhook Handler', () => {
       
       expect(response.status).toBe(200);
       const responseText = await response.text();
-      expect(responseText).toContain('merge_request');
+      expect(responseText).toContain('mention'); // Should be "No @duo-agent mention found"
     });
 
     it('should return 200 for unsupported event types', async () => {
