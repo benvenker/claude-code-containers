@@ -85,14 +85,18 @@ https://your-worker.workers.dev/webhooks/gitlab
 ## Security Features
 
 ### Project Isolation
-- Each project has its own Personal Access Token
+- Each project has its own Access Token (Project/Group/Personal)
 - Webhook secrets are project-specific
 - No cross-project data access
 
-### Token Management
-- Tokens encrypted using AES-256-GCM
+### Token Management (Security Best Practices)
+- **Project Access Tokens** (Most Secure): Limited to specific project
+- **Group Access Tokens** (Recommended for Groups): Limited to specific group
+- **Personal Access Tokens** (Use with Caution): Full user access
+- All tokens encrypted using AES-256-GCM
 - Per-project token validation
 - Support for different GitLab instances per project
+- Required scopes: `api`, `read_repository`, `write_repository`
 
 ## Deployment Architecture
 

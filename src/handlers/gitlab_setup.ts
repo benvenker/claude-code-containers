@@ -88,21 +88,41 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
       <div class="info" id="projectInstructions">
         <h3>Project Setup Instructions:</h3>
         <ol>
-          <li>Create a GitLab Personal Access Token with 'api' scope</li>
+          <li><strong>Create a Project Access Token</strong> (recommended):
+            <ul>
+              <li>Go to Project Settings → Access Tokens</li>
+              <li>Name: "Claude Code Integration"</li>
+              <li>Scopes: <code>api</code>, <code>read_repository</code>, <code>write_repository</code></li>
+              <li>Role: <code>Developer</code> or <code>Maintainer</code></li>
+            </ul>
+          </li>
           <li>Get your GitLab project ID from project settings</li>
           <li>Configure webhook URL: <code>${webhookUrl}</code></li>
           <li>Generate a random webhook secret</li>
         </ol>
+        <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-top: 10px;">
+          <strong>⚠️ Security Note:</strong> Project Access Tokens are more secure than Personal Access Tokens as they're limited to the specific project.
+        </div>
       </div>
       
       <div class="info" id="groupInstructions" style="display: none;">
         <h3>Group Setup Instructions:</h3>
         <ol>
-          <li>Create a GitLab Personal Access Token with 'api' scope</li>
+          <li><strong>Create a Group Access Token</strong> (recommended):
+            <ul>
+              <li>Go to Group Settings → Access Tokens</li>
+              <li>Name: "Claude Code Integration"</li>
+              <li>Scopes: <code>api</code>, <code>read_repository</code>, <code>write_repository</code></li>
+              <li>Role: <code>Developer</code> or <code>Maintainer</code></li>
+            </ul>
+          </li>
           <li>Get your GitLab group ID and path from group settings</li>
           <li>Configure webhook URL: <code>${webhookUrl}</code> on ALL projects in the group</li>
           <li>Use the same webhook secret for all projects in the group</li>
         </ol>
+        <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-top: 10px;">
+          <strong>⚠️ Security Note:</strong> Group Access Tokens are more secure than Personal Access Tokens as they're limited to the specific group.
+        </div>
       </div>
       
       <form id="setupForm">
@@ -133,9 +153,9 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
         </div>
         
         <div class="form-group">
-          <label for="token">Personal Access Token:</label>
+          <label for="token">Access Token:</label>
           <input type="password" id="token" name="token" placeholder="glpat-xxxxxxxxxxxxxxxxxxxx" required>
-          <small>Required scopes: api</small>
+          <small>Use Project Access Token (for single project) or Group Access Token (for group setup)</small>
         </div>
         
         <div class="form-group">
