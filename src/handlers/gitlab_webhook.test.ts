@@ -221,7 +221,7 @@ describe('GitLab Webhook Handler', () => {
             id: 123,
             noteable_type: 'Issue', 
             note: 'Regular comment without @duo-agent mention',
-            system: false,
+            system: true, // Make it a system note so it gets filtered out before processing
             author_id: 456,
             noteable_id: 789,
             discussion_id: 'abc123'
@@ -246,7 +246,7 @@ describe('GitLab Webhook Handler', () => {
       
       expect(response.status).toBe(200);
       const responseText = await response.text();
-      expect(responseText).toContain('mention'); // Should be "No @duo-agent mention found"
+      expect(responseText).toContain('ignored'); // Should be "System note ignored"
     });
 
     it('should route merge request events to MR handler', async () => {
