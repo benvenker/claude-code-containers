@@ -356,7 +356,7 @@ async function showSetupForm(_request: Request, origin: string): Promise<Respons
             // Add to configured projects
             const project = {
               projectId,
-              projectName: projectName || `Project ${projectId}`,
+              projectName: projectName || 'Project ' + projectId,
               projectNamespace,
               token,
               webhookSecret
