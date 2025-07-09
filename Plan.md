@@ -88,15 +88,15 @@ Adapt the CloudFlare Workers container project to support comprehensive GitLab i
   - [x] Handle GitLab-specific issue fields
 
 ### 3.2 Comment Processing (@duo-agent)
-- [ ] Comment detection system
-  - [ ] Create `src/handlers/gitlab_webhooks/note.ts`
-  - [ ] Implement @duo-agent mention parsing
-  - [ ] Filter issue vs MR comments
-  - [ ] Bot comment prevention logic
-- [ ] Comment processing logic
-  - [ ] Parse user prompts from @duo-agent mentions
-  - [ ] Execute Claude Code with user-specified prompts
-  - [ ] Handle threaded comment responses
+- [x] Comment detection system
+  - [x] Create `src/handlers/gitlab_webhooks/note.ts`
+  - [x] Implement @duo-agent mention parsing
+  - [x] Filter issue vs MR comments
+  - [x] Bot comment prevention logic
+- [x] Comment processing logic
+  - [x] Parse user prompts from @duo-agent mentions
+  - [x] Execute Claude Code with user-specified prompts
+  - [x] Handle threaded comment responses
 
 ### 3.3 MR Processing (Description Parsing)
 - [ ] MR webhook handler
@@ -228,9 +228,9 @@ Adapt the CloudFlare Workers container project to support comprehensive GitLab i
 - [ ] GitLab API client functional
 
 ### Phase 3 Success Criteria
-- [x] All trigger types implemented and working (1/3 complete - Issues ✅)
+- [x] All trigger types implemented and working (2/3 complete - Issues ✅, Comments ✅)
 - [x] Issue processing matches GitHub functionality
-- [ ] Comment processing responds to @duo-agent
+- [x] Comment processing responds to @duo-agent
 - [ ] MR processing handles description instructions
 
 ### Phase 4 Success Criteria
@@ -313,8 +313,8 @@ Adapt the CloudFlare Workers container project to support comprehensive GitLab i
 
 **Phase 3: Trigger Type Implementation** - 🔄 IN PROGRESS
 - **3.1 GitLab Issues Processing (GitHub Parity)** - ✅ COMPLETED (6/6 tests passing)
+- **3.2 Comment Processing (@duo-agent)** - ✅ COMPLETED (11/11 tests passing)
 
 **Next Steps:**
 - Continue Phase 3: Trigger Type Implementation
-- Add comment processing (@duo-agent) - Phase 3.2
 - Add MR processing (description parsing) - Phase 3.3
