@@ -76,7 +76,22 @@ This will:
 3. Click "Add webhook"
 4. Test the webhook using the "Test" button
 
-## 5. Demo Scenarios
+## 5. Available Tools in Container
+
+The Claude Code container now includes:
+- **GitLab CLI (glab)** - Pre-installed and auto-configured with your GitLab token
+- **Git** - For repository operations
+- **Python 3** - For scripts and automation
+- **Node.js** - For JavaScript/TypeScript execution
+- **Claude Code CLI** - For AI-powered code assistance
+
+The GitLab CLI is automatically configured when processing GitLab events, allowing Claude to use commands like:
+- `glab issue create` - Create new issues
+- `glab mr create` - Create merge requests
+- `glab api` - Direct API access
+- And more GitLab operations
+
+## 6. Demo Scenarios
 
 ### Scenario 1: Auto-Process New Issue
 1. Create a new issue in GitLab:
@@ -104,7 +119,7 @@ This will:
      ```
 2. Claude will analyze the MR and provide feedback
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 ### Check Worker Logs
 ```bash
@@ -128,7 +143,7 @@ npx wrangler tail
 - Check Worker logs for errors
 - Ensure @duo-agent is spelled correctly
 
-## 7. Demo Tips
+## 8. Demo Tips
 
 1. **Pre-create some issues** before the demo to avoid waiting
 2. **Test all scenarios** beforehand to ensure smooth operation

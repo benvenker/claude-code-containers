@@ -376,6 +376,44 @@ async function processGitLabMRCreation(): Promise<ContainerResponse> {
   };
 }
 
+// Configure GitLab CLI with authentication token
+async function configureGitLabCLI(token: string): Promise<void> {
+  try {
+    // Set GitLab host (default to gitlab.com if not specified)
+    const gitlabHost = process.env.GITLAB_URL || 'https://gitlab.com';
+    
+    logWithContext('GITLAB_CLI', 'Configuring GitLab CLI', { host: gitlabHost });
+
+    // Configure glab using environment variables
+    // The GitLab CLI respects these environment variables
+    process.env.GITLAB_TOKEN = token;
+    process.env.GITLAB_HOST = gitlabHost;
+    
+    // Verify glab is available
+    await new Promise<void>((resolve, reject) => {
+      const glabProcess = spawn('glab', ['--version'], {
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      
+      glabProcess.on('close', (code: number) => {
+        if (code === 0) {
+          logWithContext('GITLAB_CLI', 'GitLab CLI is available and configured');
+          resolve();
+        } else {
+          reject(new Error('GitLab CLI (glab) is not available'));
+        }
+      });
+      
+      glabProcess.on('error', (error: Error) => {
+        reject(new Error(`Failed to run GitLab CLI: ${error.message}`));
+      });
+    });
+  } catch (error) {
+    logWithContext('GITLAB_CLI', 'Failed to configure GitLab CLI', { error });
+    // Non-fatal: GitLab CLI is optional, container can still function
+  }
+}
+
 // GitLab workspace setup (adapted from GitHub version)
 async function setupGitLabWorkspace(gitCloneUrl: string, workspaceId: string, branch?: string): Promise<string> {
   const workspaceDir = `/tmp/workspace/${workspaceId}`;
@@ -395,6 +433,9 @@ async function setupGitLabWorkspace(gitCloneUrl: string, workspaceId: string, br
     if (!gitlabToken) {
       throw new Error('GitLab token not available for cloning');
     }
+
+    // Configure GitLab CLI (glab) with authentication
+    await configureGitLabCLI(gitlabToken);
 
     // Construct authenticated clone URL for GitLab
     let authenticatedUrl = gitCloneUrl;
