@@ -4,7 +4,9 @@
  */
 
 import { Gitlab } from '@gitbeaker/rest';
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+import { Agent as HttpAgent } from 'http';
+import { Agent as HttpsAgent } from 'https';
 
 type GitlabInstance = InstanceType<typeof Gitlab>;
 
@@ -51,12 +53,7 @@ export class GitLabClient {
     });
 
     // Initialize axios instance with connection pooling
-    this.axiosInstance = axios.create({
-      timeout: this.timeout * 1000,
-      headers: {
-        'Private-Token': this.token,
-      },
-    });
+    this.axiosInstance = this.createOptimizedAxiosInstance();
 
     this.logWithContext('GitLab client initialized', {
       gitlabUrl: this.gitlabUrl,
@@ -155,6 +152,76 @@ export class GitLabClient {
   close(): void {
     // Close axios instance and clean up resources
     this.logWithContext('Closing GitLab client', {});
+  }
+
+  private createOptimizedAxiosInstance(): AxiosInstance {
+    // Create HTTP/HTTPS agents with connection pooling
+    const httpAgent = new HttpAgent({
+      keepAlive: true,
+      maxSockets: this.poolMaxSize,
+      maxFreeSockets: this.poolConnections,
+    });
+
+    const httpsAgent = new HttpsAgent({
+      keepAlive: true,
+      maxSockets: this.poolMaxSize,
+      maxFreeSockets: this.poolConnections,
+    });
+
+    const axiosConfig: AxiosRequestConfig = {
+      timeout: this.timeout * 1000,
+      headers: {
+        'Private-Token': this.token,
+      },
+      httpAgent,
+      httpsAgent,
+    };
+
+    const instance = axios.create(axiosConfig);
+
+    // Add retry logic with exponential backoff
+    instance.interceptors.response.use(
+      response => response,
+      async error => {
+        const config = error.config;
+        
+        // Don't retry if we've exhausted retries or if it's not a retriable error
+        if (!config || config._retryCount >= this.maxRetries) {
+          return Promise.reject(error);
+        }
+
+        // Only retry on specific HTTP status codes
+        const retriableStatuses = [429, 500, 502, 503, 504];
+        if (!retriableStatuses.includes(error.response?.status)) {
+          return Promise.reject(error);
+        }
+
+        config._retryCount = config._retryCount || 0;
+        config._retryCount++;
+
+        // Exponential backoff: wait 1s, 2s, 4s, 8s...
+        const delay = Math.pow(2, config._retryCount - 1) * 1000;
+        
+        this.logWithContext('Retrying request', {
+          attempt: config._retryCount,
+          maxRetries: this.maxRetries,
+          delay: delay,
+          status: error.response?.status,
+        });
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return instance(config);
+      }
+    );
+
+    this.logWithContext('Created optimized axios instance', {
+      poolConnections: this.poolConnections,
+      poolMaxSize: this.poolMaxSize,
+      maxRetries: this.maxRetries,
+      timeout: this.timeout,
+    });
+
+    return instance;
   }
 
   private createGitLabError(message: string, originalError: any): GitLabAPIError {
