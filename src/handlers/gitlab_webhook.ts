@@ -93,20 +93,46 @@ export async function handleGitLabWebhook(request: Request, env: any): Promise<R
       return new Response('No project information', { status: 400 });
     }
 
-    // Get GitLab configuration
+    // Get GitLab configuration for this specific project
     logWithContext('GITLAB_WEBHOOK', 'Retrieving GitLab configuration', { projectId });
     
-    const id = env.GITLAB_APP_CONFIG.idFromName(projectId);
-    const configDO = env.GITLAB_APP_CONFIG.get(id);
+    const configDO = env.GITLAB_APP_CONFIG.get(env.GITLAB_APP_CONFIG.idFromString('config'));
     
-    const configResponse = await configDO.fetch(new Request('http://internal/get-credentials'));
+    // First try to get project-specific configuration
+    let configResponse = await configDO.fetch(`http://config/get-credentials?project_id=${projectId}`);
+    let credentials = null;
     
-    if (!configResponse.ok) {
-      logWithContext('GITLAB_WEBHOOK', 'No GitLab configuration found', { projectId });
+    if (configResponse.ok) {
+      credentials = await configResponse.json();
+    }
+    
+    // If no project-specific config found, check if project belongs to a configured group
+    if (!credentials && webhookData.project?.path_with_namespace) {
+      logWithContext('GITLAB_WEBHOOK', 'Checking group-level configuration', { 
+        projectNamespace: webhookData.project.path_with_namespace 
+      });
+      
+      const groupResponse = await configDO.fetch('http://config/is-project-in-group', {
+        method: 'POST',
+        body: JSON.stringify({ projectNamespace: webhookData.project.path_with_namespace })
+      });
+      
+      if (groupResponse.ok) {
+        credentials = await groupResponse.json();
+        logWithContext('GITLAB_WEBHOOK', 'Found group-level configuration', { 
+          groupId: credentials?.groupId,
+          groupPath: credentials?.groupPath
+        });
+      }
+    }
+    
+    if (!credentials) {
+      logWithContext('GITLAB_WEBHOOK', 'No GitLab configuration found', { 
+        projectId,
+        projectNamespace: webhookData.project?.path_with_namespace
+      });
       return new Response('GitLab app not configured', { status: 404 });
     }
-
-    const credentials = await configResponse.json();
     if (!credentials || !credentials.webhookSecret) {
       logWithContext('GITLAB_WEBHOOK', 'No webhook secret found', {
         projectId,

@@ -10,6 +10,45 @@ import { handleGitLabSetup } from './handlers/gitlab_setup';
 import { handleGitLabWebhook } from './handlers/gitlab_webhook';
 import { logWithContext } from './log';
 
+// Type definitions
+interface GitHubAppConfig {
+  appId: string;
+  privateKey: string;
+  webhookSecret: string;
+  installationId?: string;
+  owner: {
+    login: string;
+    type: "User" | "Organization";
+    id: number;
+  };
+  permissions: Record<string, string>;
+  events: string[];
+  repositories: Repository[];
+  createdAt: string;
+  lastWebhookAt?: string;
+  webhookCount?: number;
+}
+
+interface Repository {
+  id: number;
+  name: string;
+  full_name: string;
+  private: boolean;
+  owner: {
+    login: string;
+    id: number;
+    type: string;
+  };
+  html_url: string;
+  description: string | null;
+  fork: boolean;
+  created_at: string;
+  updated_at: string;
+  homepage: string | null;
+  language: string | null;
+  default_branch: string;
+}
+
 export class GitHubAppConfigDO {
   private storage: DurableObjectStorage;
 
@@ -570,14 +609,32 @@ export class GitLabAppConfigDO {
   private initializeTables(): void {
     logWithContext('DURABLE_OBJECT', 'Initializing GitLab SQLite tables');
 
-    // Create gitlab_app_config table
+    // Create gitlab_projects table (multi-project support)
     this.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS gitlab_app_config (
+      CREATE TABLE IF NOT EXISTS gitlab_projects (
         id INTEGER PRIMARY KEY,
+        project_id TEXT NOT NULL UNIQUE,
         gitlab_url TEXT NOT NULL,
-        project_id TEXT NOT NULL,
         token TEXT NOT NULL,
         webhook_secret TEXT NOT NULL,
+        project_name TEXT,
+        project_namespace TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
+
+    // Create gitlab_groups table (group-level support)
+    this.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS gitlab_groups (
+        id INTEGER PRIMARY KEY,
+        group_id TEXT NOT NULL UNIQUE,
+        gitlab_url TEXT NOT NULL,
+        token TEXT NOT NULL,
+        webhook_secret TEXT NOT NULL,
+        group_name TEXT,
+        group_path TEXT,
+        auto_discover_projects BOOLEAN DEFAULT 1,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )
@@ -596,36 +653,106 @@ export class GitLabAppConfigDO {
 
     if (url.pathname === '/store' && request.method === 'POST') {
       const config = await request.json();
-      await this.storeConfig(config);
+      await this.storeProjectConfig(config);
       return new Response('OK');
     }
 
     if (url.pathname === '/get-credentials' && request.method === 'GET') {
-      const credentials = await this.getCredentials();
+      const projectId = url.searchParams.get('project_id');
+      const credentials = await this.getProjectCredentials(projectId);
       return new Response(JSON.stringify(credentials));
+    }
+
+    if (url.pathname === '/list-projects' && request.method === 'GET') {
+      const projects = await this.listProjects();
+      return new Response(JSON.stringify(projects));
+    }
+
+    if (url.pathname === '/remove-project' && request.method === 'DELETE') {
+      const projectId = url.searchParams.get('project_id');
+      if (projectId) {
+        await this.removeProject(projectId);
+        return new Response('OK');
+      }
+      return new Response('Bad Request', { status: 400 });
+    }
+
+    // Group-level endpoints
+    if (url.pathname === '/store-group' && request.method === 'POST') {
+      const config = await request.json();
+      await this.storeGroupConfig(config);
+      return new Response('OK');
+    }
+
+    if (url.pathname === '/get-group-credentials' && request.method === 'GET') {
+      const groupId = url.searchParams.get('group_id');
+      const credentials = await this.getGroupCredentials(groupId);
+      return new Response(JSON.stringify(credentials));
+    }
+
+    if (url.pathname === '/list-groups' && request.method === 'GET') {
+      const groups = await this.listGroups();
+      return new Response(JSON.stringify(groups));
+    }
+
+    if (url.pathname === '/remove-group' && request.method === 'DELETE') {
+      const groupId = url.searchParams.get('group_id');
+      if (groupId) {
+        await this.removeGroup(groupId);
+        return new Response('OK');
+      }
+      return new Response('Bad Request', { status: 400 });
+    }
+
+    if (url.pathname === '/is-project-in-group' && request.method === 'POST') {
+      const data = await request.json();
+      const groupConfig = await this.isProjectInConfiguredGroup(data.projectNamespace);
+      return new Response(JSON.stringify(groupConfig));
     }
 
     return new Response('Not Found', { status: 404 });
   }
 
-  async storeConfig(config: any): Promise<void> {
+  async storeProjectConfig(config: any): Promise<void> {
     const now = new Date().toISOString();
     
     this.storage.sql.exec(
-      `INSERT OR REPLACE INTO gitlab_app_config (
-        id, gitlab_url, project_id, token, webhook_secret, created_at, updated_at
-      ) VALUES (1, ?, ?, ?, ?, ?, ?)`,
-      config.gitlabUrl,
+      `INSERT OR REPLACE INTO gitlab_projects (
+        project_id, gitlab_url, token, webhook_secret, project_name, project_namespace, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       config.projectId,
+      config.gitlabUrl,
       config.token,
       config.webhookSecret,
+      config.projectName || null,
+      config.projectNamespace || null,
       now,
       now
     );
   }
 
-  async getCredentials(): Promise<any> {
-    const cursor = this.storage.sql.exec('SELECT * FROM gitlab_app_config WHERE id = 1 LIMIT 1');
+  async getProjectCredentials(projectId: string | null): Promise<any> {
+    if (!projectId) {
+      // Return first project if no specific project requested (backward compatibility)
+      const cursor = this.storage.sql.exec('SELECT * FROM gitlab_projects ORDER BY created_at DESC LIMIT 1');
+      const results = cursor.toArray();
+      
+      if (results.length === 0) {
+        return null;
+      }
+
+      const row = results[0];
+      return {
+        gitlabUrl: row.gitlab_url,
+        projectId: row.project_id,
+        token: row.token,
+        webhookSecret: row.webhook_secret,
+        projectName: row.project_name,
+        projectNamespace: row.project_namespace
+      };
+    }
+
+    const cursor = this.storage.sql.exec('SELECT * FROM gitlab_projects WHERE project_id = ? LIMIT 1', projectId);
     const results = cursor.toArray();
 
     if (results.length === 0) {
@@ -637,8 +764,131 @@ export class GitLabAppConfigDO {
       gitlabUrl: row.gitlab_url,
       projectId: row.project_id,
       token: row.token,
-      webhookSecret: row.webhook_secret
+      webhookSecret: row.webhook_secret,
+      projectName: row.project_name,
+      projectNamespace: row.project_namespace
     };
+  }
+
+  async listProjects(): Promise<any[]> {
+    const cursor = this.storage.sql.exec('SELECT * FROM gitlab_projects ORDER BY created_at DESC');
+    const results = cursor.toArray();
+
+    return results.map(row => ({
+      projectId: row.project_id,
+      gitlabUrl: row.gitlab_url,
+      projectName: row.project_name,
+      projectNamespace: row.project_namespace,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  }
+
+  async removeProject(projectId: string): Promise<void> {
+    this.storage.sql.exec('DELETE FROM gitlab_projects WHERE project_id = ?', projectId);
+  }
+
+  // Group-level methods
+  async storeGroupConfig(config: any): Promise<void> {
+    const now = new Date().toISOString();
+    
+    this.storage.sql.exec(
+      `INSERT OR REPLACE INTO gitlab_groups (
+        group_id, gitlab_url, token, webhook_secret, group_name, group_path, auto_discover_projects, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      config.groupId,
+      config.gitlabUrl,
+      config.token,
+      config.webhookSecret,
+      config.groupName || null,
+      config.groupPath || null,
+      config.autoDiscoverProjects !== false ? 1 : 0,
+      now,
+      now
+    );
+  }
+
+  async getGroupCredentials(groupId: string | null): Promise<any> {
+    if (!groupId) {
+      // Return first group if no specific group requested
+      const cursor = this.storage.sql.exec('SELECT * FROM gitlab_groups ORDER BY created_at DESC LIMIT 1');
+      const results = cursor.toArray();
+      
+      if (results.length === 0) {
+        return null;
+      }
+
+      const row = results[0];
+      return {
+        gitlabUrl: row.gitlab_url,
+        groupId: row.group_id,
+        token: row.token,
+        webhookSecret: row.webhook_secret,
+        groupName: row.group_name,
+        groupPath: row.group_path,
+        autoDiscoverProjects: row.auto_discover_projects === 1
+      };
+    }
+
+    const cursor = this.storage.sql.exec('SELECT * FROM gitlab_groups WHERE group_id = ? LIMIT 1', groupId);
+    const results = cursor.toArray();
+
+    if (results.length === 0) {
+      return null;
+    }
+
+    const row = results[0];
+    return {
+      gitlabUrl: row.gitlab_url,
+      groupId: row.group_id,
+      token: row.token,
+      webhookSecret: row.webhook_secret,
+      groupName: row.group_name,
+      groupPath: row.group_path,
+      autoDiscoverProjects: row.auto_discover_projects === 1
+    };
+  }
+
+  async listGroups(): Promise<any[]> {
+    const cursor = this.storage.sql.exec('SELECT * FROM gitlab_groups ORDER BY created_at DESC');
+    const results = cursor.toArray();
+
+    return results.map(row => ({
+      groupId: row.group_id,
+      gitlabUrl: row.gitlab_url,
+      groupName: row.group_name,
+      groupPath: row.group_path,
+      autoDiscoverProjects: row.auto_discover_projects === 1,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
+  }
+
+  async removeGroup(groupId: string): Promise<void> {
+    this.storage.sql.exec('DELETE FROM gitlab_groups WHERE group_id = ?', groupId);
+  }
+
+  // Helper method to check if a project belongs to a configured group
+  async isProjectInConfiguredGroup(projectNamespace: string): Promise<any> {
+    const cursor = this.storage.sql.exec('SELECT * FROM gitlab_groups WHERE auto_discover_projects = 1');
+    const results = cursor.toArray();
+
+    for (const row of results) {
+      const groupPath = row.group_path as string;
+      if (groupPath && projectNamespace.startsWith(groupPath + '/')) {
+        return {
+          gitlabUrl: row.gitlab_url,
+          groupId: row.group_id,
+          token: row.token,
+          webhookSecret: row.webhook_secret,
+          groupName: row.group_name,
+          groupPath: row.group_path,
+          autoDiscoverProjects: row.auto_discover_projects === 1
+        };
+      }
+    }
+
+    return null;
   }
 }
 
@@ -744,10 +994,18 @@ export class MyContainer extends Container {
   }
 }
 
+export interface Env {
+  MY_CONTAINER: DurableObjectNamespace<Container<unknown>>;
+  GITHUB_APP_CONFIG: DurableObjectNamespace<GitHubAppConfigDO>;
+  GITLAB_APP_CONFIG: DurableObjectNamespace<GitLabAppConfigDO>;
+  ANTHROPIC_API_KEY?: string;
+  ENVIRONMENT?: string;
+}
+
 export default {
   async fetch(
     request: Request,
-    env: { MY_CONTAINER: DurableObjectNamespace<Container<unknown>> }
+    env: Env
   ): Promise<Response> {
     const startTime = Date.now();
     const url = new URL(request.url);
@@ -862,7 +1120,11 @@ export default {
 
       // Default home page
       else {
-        logWithContext('MAIN_HANDLER', 'Serving home page');
+        logWithContext('MAIN_HANDLER', 'Serving home page', {
+          pathname,
+          method: request.method,
+          url: request.url
+        });
         routeMatched = true;
         response = new Response(`
 🤖 Claude Code Container Integration
@@ -879,7 +1141,18 @@ Container Testing Routes:
 - /singleton - Single container instance
 
 Once setup is complete, create GitHub issues or GitLab @duo-agent comments to trigger automatic Claude Code processing!
-        `);
+
+Debug Info:
+- Pathname: ${pathname}
+- Method: ${request.method}
+- URL: ${request.url}
+- Timestamp: ${new Date().toISOString()}
+        `, {
+          headers: {
+            'Content-Type': 'text/plain',
+            'Cache-Control': 'no-cache'
+          }
+        });
       }
 
       const processingTime = Date.now() - startTime;

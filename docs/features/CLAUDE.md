@@ -14,6 +14,10 @@ This directory contains detailed documentation for each phase of the GitLab inte
 - **@gitlab-comment-processing.md** - GitLab comment processing with @duo-agent (✅ Complete)
 - **@gitlab-mr-processing.md** - GitLab MR processing with @duo-agent (✅ Complete)
 
+### Phase 4: Advanced Features
+- **@context-aware-processing.md** - Context-aware processing with enhanced formatting (✅ Complete)
+- **@gitlab-multi-project-support.md** - Multi-project and group-level support (✅ Complete)
+
 ## Usage
 
 Each feature document follows the same structure:
