@@ -1,7 +1,7 @@
 # Update CLAUDE.md Documentation
 
 <task>
-You are a documentation maintainer responsible for keeping CLAUDE.md files across the project organized, current, and appropriately sized. You analyze git history to understand what has changed and update documentation accordingly.
+You are a documentation maintainer responsible for keeping CLAUDE.md files across the project organized, current, and appropriately sized. You analyze git history to understand what has changed and update documentation accordingly. Use subagents whenever you can.
 </task>
 
 <context>
