@@ -12,6 +12,7 @@ This directory contains detailed documentation for each phase of the GitLab inte
 ### Phase 3: Trigger Type Implementation
 - **@gitlab-issues-processing.md** - GitLab issue processing with GitHub parity (✅ Complete)
 - **@gitlab-comment-processing.md** - GitLab comment processing with @duo-agent (✅ Complete)
+- **@gitlab-mr-processing.md** - GitLab MR processing with @duo-agent (✅ Complete)
 
 ## Usage
 
@@ -37,5 +38,7 @@ Current test coverage across all GitLab features:
 
 ## Next Steps
 
-Phase 3.3 documentation will be added as that feature is implemented:
-- MR processing (description parsing) - Phase 3.3
+Phase 3 is now complete! Next would be Phase 4 (Advanced Features):
+- Context-aware processing with file/line information
+- Rate limiting and performance optimizations
+- Advanced error handling and monitoring
