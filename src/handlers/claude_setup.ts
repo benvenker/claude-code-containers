@@ -25,12 +25,12 @@ export async function handleClaudeSetup(request: Request, origin: string, env: a
         throw new Error('Invalid Anthropic API key format');
       }
 
-      // Store the API key securely in a deployment-specific Durable Object
+      // Store the API key securely in GitLab's Durable Object
       const deploymentId = 'claude-config'; // Single config per deployment
-      logWithContext('CLAUDE_SETUP', 'Storing API key in Durable Object', { deploymentId });
+      logWithContext('CLAUDE_SETUP', 'Storing API key in GitLab Durable Object', { deploymentId });
 
-      const id = env.GITHUB_APP_CONFIG.idFromName(deploymentId);
-      const configDO = env.GITHUB_APP_CONFIG.get(id);
+      const id = env.GITLAB_APP_CONFIG.idFromName(deploymentId);
+      const configDO = env.GITLAB_APP_CONFIG.get(id);
 
       // Encrypt the API key
       const encryptedApiKey = await encrypt(apiKey);
@@ -79,10 +79,10 @@ export async function handleClaudeSetup(request: Request, origin: string, env: a
 <body>
     <h1 class="success">Claude Code API Key Configured!</h1>
     <p>Your Anthropic API key has been securely stored and encrypted.</p>
-    <p>Claude Code is now ready to process GitHub issues automatically!</p>
+    <p>Claude Code is now ready to process GitLab issues and @duo-agent mentions!</p>
 
-    <a href="/gh-setup" class="next-btn">
-        Setup GitHub Integration
+    <a href="/gitlab-setup" class="next-btn">
+        Setup GitLab Integration
     </a>
 
     <p><small>Your API key is encrypted and stored securely in Cloudflare's Durable Objects.</small></p>
@@ -238,7 +238,7 @@ export async function handleClaudeSetup(request: Request, origin: string, env: a
 <body>
     <div class="header">
         <h1>Claude Code Setup</h1>
-        <p>Configure your Anthropic API key to enable AI-powered GitHub issue processing</p>
+        <p>Configure your Anthropic API key to enable AI-powered GitLab issue processing and @duo-agent mentions</p>
     </div>
 
     <div class="info-box">
@@ -263,8 +263,8 @@ export async function handleClaudeSetup(request: Request, origin: string, env: a
 
         <div class="step">
             <div class="step-number">3</div>
-            <strong>Setup GitHub Integration</strong><br>
-            After saving your key, configure GitHub to send webhooks for automatic issue processing.
+            <strong>Setup GitLab Integration</strong><br>
+            After saving your key, configure GitLab webhooks to enable @duo-agent mentions and automatic issue processing.
         </div>
     </div>
 
@@ -292,7 +292,7 @@ export async function handleClaudeSetup(request: Request, origin: string, env: a
         Only your worker deployment can decrypt and use it. It's never logged or exposed.
     </div>
 
-    <p><strong>Already configured?</strong> <a href="/gh-setup">Continue to GitHub Setup</a></p>
+    <p><strong>Already configured?</strong> <a href="/gitlab-setup">Continue to GitLab Setup</a></p>
 
     <hr style="margin: 40px 0;">
     <p style="text-align: center;"><a href="/">Back to Home</a></p>

@@ -640,6 +640,17 @@ export class GitLabAppConfigDO {
       )
     `);
 
+    // Create claude_config table (shared Claude API key)
+    this.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS claude_config (
+        id INTEGER PRIMARY KEY,
+        anthropic_api_key TEXT NOT NULL,
+        claude_setup_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `);
+
     logWithContext('DURABLE_OBJECT', 'GitLab SQLite tables initialized successfully');
   }
 
@@ -708,6 +719,18 @@ export class GitLabAppConfigDO {
       const data = await request.json();
       const groupConfig = await this.isProjectInConfiguredGroup(data.projectNamespace);
       return new Response(JSON.stringify(groupConfig));
+    }
+
+    // Claude API key endpoints (shared with GitLab integration)
+    if (url.pathname === '/store-claude-key' && request.method === 'POST') {
+      const body = await request.json();
+      await this.storeClaudeApiKey(body.anthropicApiKey, body.claudeSetupAt);
+      return new Response('OK');
+    }
+
+    if (url.pathname === '/get-claude-key' && request.method === 'GET') {
+      const apiKey = await this.getDecryptedClaudeApiKey();
+      return new Response(JSON.stringify({ anthropicApiKey: apiKey }));
     }
 
     return new Response('Not Found', { status: 404 });
@@ -889,6 +912,53 @@ export class GitLabAppConfigDO {
     }
 
     return null;
+  }
+
+  // Claude API key management methods
+  async storeClaudeApiKey(encryptedApiKey: string, setupTimestamp: string): Promise<void> {
+    const now = new Date().toISOString();
+    
+    logWithContext('DURABLE_OBJECT', 'Storing Claude API key in GitLab SQLite storage', {
+      setupTimestamp
+    });
+
+    this.storage.sql.exec(
+      `INSERT OR REPLACE INTO claude_config (
+        id, anthropic_api_key, claude_setup_at, created_at, updated_at
+      ) VALUES (1, ?, ?, ?, ?)`,
+      encryptedApiKey,
+      setupTimestamp,
+      now,
+      now
+    );
+  }
+
+  async getDecryptedClaudeApiKey(): Promise<string | null> {
+    try {
+      const cursor = this.storage.sql.exec('SELECT * FROM claude_config WHERE id = 1 LIMIT 1');
+      const results = cursor.toArray();
+
+      if (results.length === 0) {
+        logWithContext('DURABLE_OBJECT', 'No Claude config found in GitLab SQLite storage');
+        return null;
+      }
+
+      const row = results[0];
+
+      logWithContext('DURABLE_OBJECT', 'Decrypting Claude API key from GitLab SQLite', {
+        setupAt: row.claude_setup_at
+      });
+
+      const decryptedKey = await decrypt(row.anthropic_api_key as string);
+
+      logWithContext('DURABLE_OBJECT', 'Claude API key decrypted successfully from GitLab storage');
+      return decryptedKey;
+    } catch (error) {
+      logWithContext('DURABLE_OBJECT', 'Failed to decrypt Claude API key from GitLab SQLite', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      return null;
+    }
   }
 }
 

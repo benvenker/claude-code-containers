@@ -96,9 +96,9 @@ async function routeToEnhancedClaudeCodeContainer(
   const credentialsResponse = await configDO.fetch(new Request('http://internal/get-credentials'));
   const credentials = await credentialsResponse.json();
 
-  // Get Claude API key from secure storage
-  const claudeConfigId = env.GITHUB_APP_CONFIG.idFromName('claude-config');
-  const claudeConfigDO = env.GITHUB_APP_CONFIG.get(claudeConfigId);
+  // Get Claude API key from secure storage in GitLab Durable Object
+  const claudeConfigId = env.GITLAB_APP_CONFIG.idFromName('claude-config');
+  const claudeConfigDO = env.GITLAB_APP_CONFIG.get(claudeConfigId);
   const claudeKeyResponse = await claudeConfigDO.fetch(new Request('http://internal/get-claude-key'));
   const claudeKeyData = await claudeKeyResponse.json();
 

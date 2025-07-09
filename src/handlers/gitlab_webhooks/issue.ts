@@ -42,11 +42,11 @@ async function routeToClaudeCodeContainer(
     url: credentials.url
   });
 
-  // Get Claude API key from secure storage (stored in GitHub Durable Object)
+  // Get Claude API key from secure storage (stored in GitLab Durable Object)
   logWithContext('GITLAB_CLAUDE_ROUTING', 'Retrieving Claude API key');
 
-  const claudeConfigId = env.GITHUB_APP_CONFIG.idFromName('claude-config');
-  const claudeConfigDO = env.GITHUB_APP_CONFIG.get(claudeConfigId);
+  const claudeConfigId = env.GITLAB_APP_CONFIG.idFromName('claude-config');
+  const claudeConfigDO = env.GITLAB_APP_CONFIG.get(claudeConfigId);
   const claudeKeyResponse = await claudeConfigDO.fetch(new Request('http://internal/get-claude-key'));
   const claudeKeyData = await claudeKeyResponse.json();
 
